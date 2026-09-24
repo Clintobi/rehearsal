@@ -3,7 +3,7 @@ import type { Asset } from "./assets";
 import { quote, USDC, type Quote } from "./jup";
 import { readPrices } from "./pyth";
 import { marketStatus, type MarketStatus } from "./market";
-import { uiMultipliers } from "./scaled";
+import { mintInfos } from "./mintinfo";
 
 export type Reference = {
   price: number;
@@ -44,24 +44,24 @@ const units = (n: number, d: number) => BigInt(Math.round(n * 10 ** d));
 const ui = (s: string, d: number) => Number(s) / 10 ** d;
 
 export async function reference(asset: Asset, conn = rpc()): Promise<Reference | null> {
-  if (asset.ref.source === "pyth") {
-    const [p] = await readPrices(conn, [asset.ref.account]);
+  if (asset.pyth) {
+    const [p] = await readPrices(conn, [asset.pyth.account]);
     if (!p) return null;
     return {
       price: p.price,
-      source: `Pyth Equity.US.${asset.ref.ticker}/USD`,
+      source: `Pyth Equity.US.${asset.pyth.ticker}/USD`,
       detail: "Read on-chain from the Pyth price account on Solana",
       account: p.account,
       conf: p.conf,
       ageSec: Math.max(0, Math.round(Date.now() / 1000 - p.publishTime)),
-      market: marketStatus(asset.ref.schedule),
+      market: marketStatus(asset.pyth.schedule),
     };
   }
-  if (asset.ref.source === "prestocks") {
+  if (asset.mark) {
     return {
-      price: asset.ref.markPrice,
+      price: asset.mark.price,
       source: "PreStocks mark price",
-      detail: `Issuer mark from last private valuation ($${fmtB(asset.ref.markValuation)})`,
+      detail: `Issuer mark from last private valuation ($${fmtB(asset.mark.valuation)})`,
     };
   }
   return null;
@@ -100,9 +100,9 @@ export function judge(r: Omit<Rehearsal, "verdict">): Verdict {
 const fmtB = (v: number) => (v >= 1e12 ? `${(v / 1e12).toFixed(2)}T` : `${(v / 1e9).toFixed(0)}B`);
 
 export async function rehearse(asset: Asset, usd: number, side: "buy" | "sell", conn = rpc()): Promise<Rehearsal | { error: string }> {
-  const [ref, mults] = await Promise.all([reference(asset, conn).catch(() => null), uiMultipliers(conn, [asset.mint]).catch(() => new Map<string, number>())]);
+  const [ref, mults] = await Promise.all([reference(asset, conn).catch(() => null), mintInfos(conn, [asset.mint]).catch(() => new Map())]);
   // Token-2022 scaled UI amount: one raw unit is `mult` shares as the wallet shows them.
-  const mult = mults.get(asset.mint) ?? 1;
+  const mult = mults.get(asset.mint)?.multiplier ?? 1;
   const toUi = (raw: string) => ui(raw, asset.decimals) * mult;
   const toRaw = (shares: number) => units(shares / mult, asset.decimals);
   let q: Quote | { error: string };
@@ -147,8 +147,8 @@ export async function rehearse(asset: Asset, usd: number, side: "buy" | "sell", 
     reference: ref,
     premiumPct,
     overpayUsd: ref ? (side === "buy" ? usd - tokens * ref.price : tokens * ref.price - fillPrice * tokens) : null,
-    impliedValuation: asset.ref.source === "prestocks" ? asset.ref.markValuation * (fillPrice / asset.ref.markPrice) : null,
-    markValuation: asset.ref.source === "prestocks" ? asset.ref.markValuation : null,
+    impliedValuation: asset.mark ? asset.mark.valuation * (fillPrice / asset.mark.price) : null,
+    markValuation: asset.mark?.valuation ?? null,
     quote: q,
     at: Date.now(),
   };

@@ -10,6 +10,8 @@ const WalletMultiButton = dynamic(() => import("@solana/wallet-adapter-react-ui"
 
 type AssetOpt = { symbol: string; name: string; mint: string; kind: "xstock" | "prestock"; icon?: string; ref: string | null };
 
+const GUARD_LIVE = process.env.NEXT_PUBLIC_GUARD_LIVE === "1";
+const GUARD_ID = process.env.NEXT_PUBLIC_GUARD_PROGRAM_ID ?? "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE";
 const usdFmt = (n: number, d = 2) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (n: number | null | undefined, d = 2) => (n == null ? "–" : `${n > 0 ? "+" : ""}${n.toFixed(d)}%`);
 const b64ToBytes = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
@@ -231,18 +233,26 @@ function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
   const ref = r.reference;
   const buy = r.side === "buy";
 
+  const defaultTol = r.asset.kind === "prestock" ? 500 : 100;
+  const [guardOn, setGuardOn] = useState(GUARD_LIVE);
+  const [tol, setTol] = useState(defaultTol);
+
   async function execute() {
     if (!publicKey || !signTransaction) return;
     try {
       setExec({ state: "building" });
-      const b = await fetch("/api/swap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ quote: r.quote, userPublicKey: publicKey.toBase58() }) }).then((x) => x.json());
+      const body = JSON.stringify({ quote: r.quote, userPublicKey: publicKey.toBase58(), toleranceBps: tol });
+      const b = await fetch(guardOn ? "/api/guarded-swap" : "/api/swap", { method: "POST", headers: { "content-type": "application/json" }, body }).then((x) => x.json());
       if (b.error) throw new Error(b.error);
       setExec({ state: "signing" });
       const tx = VersionedTransaction.deserialize(b64ToBytes(b.swapTransaction));
       const signed = await signTransaction(tx);
       setExec({ state: "sending" });
       const s = await fetch("/api/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signed: bytesToB64(signed.serialize()), lastValidBlockHeight: b.lastValidBlockHeight }) }).then((x) => x.json());
-      if (s.error) throw Object.assign(new Error(s.error), { sig: s.signature });
+      if (s.error) {
+        const blocked = /custom program error: 0x1770|"Custom":6000/.test(s.error);
+        throw Object.assign(new Error(blocked ? "Guard blocked this fill on-chain: it was worse than fair value by more than your tolerance. The whole transaction reverted, so no funds moved." : s.error), { sig: s.signature });
+      }
       setExec({ state: "done", sig: s.signature });
     } catch (e) {
       setExec({ state: "error", msg: e instanceof Error ? e.message : String(e), sig: (e as { sig?: string }).sig });
@@ -294,6 +304,22 @@ function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
         {r.uiMultiplier !== 1 && <div>Token-2022 multiplier {r.uiMultiplier.toFixed(4)}× applied (splits and dividends)</div>}
       </div>
 
+      <div className="mt-4 rounded-xl border border-line p-3.5">
+        <label className="flex items-start gap-3">
+          <input type="checkbox" checked={guardOn} disabled={!GUARD_LIVE} onChange={(e) => setGuardOn(e.target.checked)} className="mt-1 h-4 w-4 accent-[var(--color-ink)]" />
+          <span className="text-sm">
+            <b>Guard this trade on-chain</b>
+            <span className="block text-mute">
+              Wraps the swap in the Rehearsal Guard program. The program checks what you actually received against {ref?.account ? "the Pyth price" : "the PreStocks mark"} inside the same transaction,
+              and reverts everything if the fill is more than
+              <input type="number" min={0} max={5000} step={10} value={tol} onChange={(e) => setTol(Number(e.target.value))}
+                className="num mx-1 w-16 rounded border border-line px-1 text-ink" /> bps worse.
+              {!GUARD_LIVE && <> The program is live on devnet (<a className="underline" href={`https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet`} target="_blank" rel="noreferrer">{short(GUARD_ID)}</a>); the mainnet deploy is pending, so mainnet trades go through unguarded.</>}
+            </span>
+          </span>
+        </label>
+      </div>
+
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {!connected ? (
           <span className="text-sm text-mute">Connect a wallet to place this trade.</span>
@@ -304,7 +330,7 @@ function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
               : stale ? "Refresh the quote first" : v.level === "bad" ? `${buy ? "Buy" : "Sell"} anyway at ${usdFmt(r.fillPrice)}` : `${buy ? "Buy" : "Sell"} at ${usdFmt(r.fillPrice)}`}
           </button>
         )}
-        {exec.state === "done" && exec.sig && <a className="text-sm font-medium text-good underline" href={`https://solscan.io/tx/${exec.sig}`} target="_blank" rel="noreferrer">Filled · view on Solscan</a>}
+        {exec.state === "done" && exec.sig && <a className="text-sm font-medium text-good underline" href={`https://solscan.io/tx/${exec.sig}`} target="_blank" rel="noreferrer">{guardOn ? "Filled inside the guard" : "Filled"} · view on Solscan</a>}
         {exec.state === "error" && <span className="text-sm text-bad">{exec.msg}{exec.sig && <> · <a className="underline" href={`https://solscan.io/tx/${exec.sig}`} target="_blank" rel="noreferrer">tx</a></>}</span>}
       </div>
     </div>

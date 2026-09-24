@@ -1,0 +1,19 @@
+[toolchain]
+anchor_version = "0.32.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+rehearsal_guard = "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE"
+
+[programs.localnet]
+rehearsal_guard = "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE"
+
+[provider]
+cluster = "devnet"
+wallet = "./keys/deployer.json"
+
+[scripts]
+test = "true"

@@ -1,0 +1,22 @@
+guard program TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE user 2CLgZjsm2WYf7XqnnDfdEx69Yx4jTow4aHgtmr3x8XsG
+
+PASS  1. Buy $500 NVDAx, Pyth guard 1%: passes
+      fill $223.81 vs ref $223.59 gap 9bps (tol 100) mult 1.001701196 pyth=true · 5bCxffELFmaC…
+PASS  2. Buy with a fair price 20% below Pyth: reverts
+      Blocked: the fill was worse than fair value by more than your tolerance Guard: fill $223983688e-6 vs fair $180000000e-6 is 2443 bps worse, tolerance 100 bps
+PASS  3. Spoofed oracle (AAPL account for NVDA feed): reverts
+      Pyth feed mismatch 
+PASS  4. Fake oracle account (USDC mint as price): reverts
+      Not a Pyth price account 
+PASS  5. Sell 1 NVDAx back to USDC, Pyth guard 1%: passes
+      fill $223.44 vs ref $223.59 gap 6bps (tol 100) mult 1.001701196 pyth=true · 4wZkAMdexQbE…
+PASS  6. Buy $300 OPENAI PreStocks capped at mark +5%: reverts
+      Blocked: the fill was worse than fair value by more than your tolerance Guard: fill $1376653883e-6 vs fair $1023650000e-6 is 3448 bps worse, tolerance 500 bps
+PASS  7. Buy $300 SPACEX PreStocks capped at mark: passes (5x multiplier applied)
+      fill $121.99 vs ref $147.45 gap -1726bps (tol 0) mult 5 pyth=false · 5zcTbwr43o3r…
+PASS  8. open_guard without close_guard: reverts
+      open_guard without a matching close_guard
+PASS  9. Ledger PDA records guarded fills
+      fills=3 volume=$1023.82 stats=present
+
+9/9 passed

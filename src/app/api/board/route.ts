@@ -4,7 +4,7 @@ import { quote, USDC } from "@/lib/jup";
 import { readPrices } from "@/lib/pyth";
 import { marketStatus } from "@/lib/market";
 import { rpc } from "@/lib/rehearse";
-import { uiMultipliers } from "@/lib/scaled";
+import { mintInfos } from "@/lib/mintinfo";
 
 export const maxDuration = 60;
 const PROBE_USD = 1000;
@@ -27,23 +27,23 @@ async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>) {
 export async function GET() {
   if (cache && Date.now() - cache.at < 45_000) return NextResponse.json(cache.body);
   const assets = await allAssets();
-  const pythAssets = assets.filter((a) => a.ref.source === "pyth");
+  const pythAssets = assets.filter((a) => a.pyth);
   const conn = rpc();
   const [prices, mults] = await Promise.all([
-    readPrices(conn, pythAssets.map((a) => (a.ref as { account: string }).account)).catch(() => []),
-    uiMultipliers(conn, assets.map((a) => a.mint)).catch(() => new Map<string, number>()),
+    readPrices(conn, pythAssets.map((a) => a.pyth!.account)).catch(() => []),
+    mintInfos(conn, assets.map((a) => a.mint)).catch(() => new Map()),
   ]);
   const px = new Map(pythAssets.map((a, i) => [a.mint, prices[i]]));
 
   const rows = await pool(assets, 4, async (a): Promise<BoardRow> => {
     const p = px.get(a.mint);
-    const refPrice = a.ref.source === "pyth" ? p?.price ?? null : a.ref.source === "prestocks" ? a.ref.markPrice : null;
-    const refSource = a.ref.source === "pyth" ? "Pyth" : a.ref.source === "prestocks" ? "PreStocks mark" : null;
+    const refPrice = a.pyth ? p?.price ?? null : a.mark ? a.mark.price : null;
+    const refSource = a.pyth ? "Pyth" : a.mark ? "PreStocks mark" : null;
     const q = await quote(USDC, a.mint, BigInt(PROBE_USD * 1e6));
     const base = { symbol: a.symbol, name: a.name, mint: a.mint, kind: a.kind, icon: a.icon, refPrice, refSource,
-      marketOpen: a.ref.source === "pyth" ? marketStatus(a.ref.schedule).open : null };
+      marketOpen: a.pyth ? marketStatus(a.pyth.schedule).open : null };
     if ("error" in q) return { ...base, fillPrice: null, premiumPct: null, impactPct: null, error: q.error };
-    const fillPrice = PROBE_USD / ((Number(q.outAmount) / 10 ** a.decimals) * (mults.get(a.mint) ?? 1));
+    const fillPrice = PROBE_USD / ((Number(q.outAmount) / 10 ** a.decimals) * (mults.get(a.mint)?.multiplier ?? 1));
     return { ...base, fillPrice, premiumPct: refPrice ? (fillPrice / refPrice - 1) * 100 : null, impactPct: Number(q.priceImpactPct) * 100 };
   });
   const body = { probeUsd: PROBE_USD, at: Date.now(), rows };

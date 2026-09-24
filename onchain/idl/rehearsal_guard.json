@@ -1,0 +1,629 @@
+{
+  "address": "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE",
+  "metadata": {
+    "name": "rehearsal_guard",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Reverts a swap in the same transaction when the fill is worse than fair value"
+  },
+  "instructions": [
+    {
+      "name": "close_guard",
+      "discriminator": [
+        132,
+        144,
+        16,
+        147,
+        0,
+        23,
+        60,
+        158
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "guard"
+          ]
+        },
+        {
+          "name": "guard",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  117,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "input_mint",
+          "relations": [
+            "guard"
+          ]
+        },
+        {
+          "name": "output_mint",
+          "relations": [
+            "guard"
+          ]
+        },
+        {
+          "name": "input_account",
+          "relations": [
+            "guard"
+          ]
+        },
+        {
+          "name": "output_account",
+          "relations": [
+            "guard"
+          ]
+        },
+        {
+          "name": "price_update",
+          "optional": true
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stats",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  115
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_guard",
+      "discriminator": [
+        127,
+        164,
+        214,
+        84,
+        64,
+        126,
+        169,
+        121
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "guard",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  117,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "input_mint"
+        },
+        {
+          "name": "output_mint"
+        },
+        {
+          "name": "input_account"
+        },
+        {
+          "name": "output_account",
+          "docs": [
+            "by `balance_or_zero` when it does exist, and again at close."
+          ]
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "policy",
+          "type": {
+            "defined": {
+              "name": "Policy"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Guard",
+      "discriminator": [
+        54,
+        187,
+        84,
+        137,
+        192,
+        15,
+        74,
+        248
+      ]
+    },
+    {
+      "name": "Ledger",
+      "discriminator": [
+        43,
+        41,
+        21,
+        213,
+        180,
+        176,
+        95,
+        32
+      ]
+    },
+    {
+      "name": "Stats",
+      "discriminator": [
+        190,
+        125,
+        51,
+        63,
+        169,
+        197,
+        36,
+        238
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "GuardedFill",
+      "discriminator": [
+        236,
+        190,
+        70,
+        239,
+        92,
+        185,
+        247,
+        224
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "FillWorseThanFair",
+      "msg": "Fill is worse than fair value by more than the tolerance"
+    },
+    {
+      "code": 6001,
+      "name": "MissingClose",
+      "msg": "open_guard needs a matching close_guard later in the same transaction"
+    },
+    {
+      "code": 6002,
+      "name": "BadTolerance",
+      "msg": "Tolerance must be between 0 and 5000 bps"
+    },
+    {
+      "code": 6003,
+      "name": "NotAStablecoin",
+      "msg": "Stablecoin leg is not an allowed stablecoin"
+    },
+    {
+      "code": 6004,
+      "name": "WrongTokenAccount",
+      "msg": "Token account does not belong to the signer or has the wrong mint"
+    },
+    {
+      "code": 6005,
+      "name": "MissingPriceAccount",
+      "msg": "Pyth account is missing but the policy needs one"
+    },
+    {
+      "code": 6006,
+      "name": "NotAPythAccount",
+      "msg": "Account is not a Pyth PriceUpdateV2 owned by the Pyth receiver"
+    },
+    {
+      "code": 6007,
+      "name": "WrongFeed",
+      "msg": "Pyth price is for a different feed"
+    },
+    {
+      "code": 6008,
+      "name": "PartiallyVerified",
+      "msg": "Pyth update is only partially verified"
+    },
+    {
+      "code": 6009,
+      "name": "StalePrice",
+      "msg": "Pyth price is older than the policy allows"
+    },
+    {
+      "code": 6010,
+      "name": "ConfidenceTooWide",
+      "msg": "Pyth confidence interval is wider than the policy allows"
+    },
+    {
+      "code": 6011,
+      "name": "BadPrice",
+      "msg": "Oracle price is zero or negative"
+    },
+    {
+      "code": 6012,
+      "name": "NothingSpent",
+      "msg": "The swap did not spend any input"
+    },
+    {
+      "code": 6013,
+      "name": "NothingReceived",
+      "msg": "The swap did not deliver any output"
+    },
+    {
+      "code": 6014,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6015,
+      "name": "BadMintData",
+      "msg": "Mint extension data is malformed"
+    }
+  ],
+  "types": [
+    {
+      "name": "Guard",
+      "docs": [
+        "Lives only inside one transaction: created by `open_guard`, closed by `close_guard`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "input_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "output_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "input_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "output_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "input_before",
+            "type": "u64"
+          },
+          {
+            "name": "output_before",
+            "type": "u64"
+          },
+          {
+            "name": "policy",
+            "type": {
+              "defined": {
+                "name": "Policy"
+              }
+            }
+          },
+          {
+            "name": "opened_slot",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GuardedFill",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "input_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "output_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": {
+              "defined": {
+                "name": "Side"
+              }
+            }
+          },
+          {
+            "name": "spent",
+            "type": "u64"
+          },
+          {
+            "name": "received",
+            "type": "u64"
+          },
+          {
+            "name": "fill_price_e6",
+            "docs": [
+              "USD per displayed token actually paid (buy) or received (sell), 6 decimals."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "reference_price_e6",
+            "docs": [
+              "Fair USD per displayed token used for the check, 6 decimals."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "gap_bps",
+            "docs": [
+              "Positive: worse than fair value by this much. Negative: better."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "tolerance_bps",
+            "type": "u16"
+          },
+          {
+            "name": "ui_multiplier_e9",
+            "type": "u64"
+          },
+          {
+            "name": "used_pyth",
+            "type": "bool"
+          },
+          {
+            "name": "slot",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ledger",
+      "docs": [
+        "Per-wallet running record of guarded fills."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "fills",
+            "type": "u64"
+          },
+          {
+            "name": "volume_e6",
+            "docs": [
+              "Stablecoin notional that went through the guard, 6 decimals."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "edge_e6",
+            "docs": [
+              "Sum of (fair value received - value given), 6 decimals. Negative means the",
+              "user paid over fair value in total, inside their tolerance."
+            ],
+            "type": "i128"
+          },
+          {
+            "name": "last_slot",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Policy",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "side",
+            "type": {
+              "defined": {
+                "name": "Side"
+              }
+            }
+          },
+          {
+            "name": "reference",
+            "type": {
+              "defined": {
+                "name": "Reference"
+              }
+            }
+          },
+          {
+            "name": "tolerance_bps",
+            "docs": [
+              "Most the fill may be worse than fair value: premium paid on a buy,",
+              "discount taken on a sell. 100 = 1%."
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Reference",
+      "docs": [
+        "Where fair value for the stock token comes from."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pyth",
+            "fields": [
+              {
+                "name": "feed_id",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                }
+              },
+              {
+                "name": "max_age_secs",
+                "type": "u32"
+              },
+              {
+                "name": "max_conf_bps",
+                "type": "u16"
+              }
+            ]
+          },
+          {
+            "name": "Limit",
+            "fields": [
+              {
+                "name": "price_e6",
+                "type": "u64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Side",
+      "docs": [
+        "Which leg of the swap is the stablecoin."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Buy"
+          },
+          {
+            "name": "Sell"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Stats",
+      "docs": [
+        "Program-wide counters, so anyone can read total usage on-chain."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fills",
+            "type": "u64"
+          },
+          {
+            "name": "volume_e6",
+            "type": "u128"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
