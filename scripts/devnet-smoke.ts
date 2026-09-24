@@ -4,7 +4,7 @@ import { ComputeBudgetProgram, Connection, Keypair, PublicKey, TransactionInstru
 import { readFileSync } from "fs";
 import { ata, closeGuardIx, GUARD_ERRORS, GUARD_PROGRAM_ID, openGuardIx, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
 
-const conn = new Connection("https://api.devnet.solana.com", "confirmed");
+const conn = new Connection(process.env.DEVNET_RPC ?? "https://api.devnet.solana.com", "confirmed");
 const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync("onchain/keys/deployer.json", "utf8"))));
 const USDC_DEV = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 const ATA_PROGRAM = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
@@ -23,8 +23,10 @@ async function run(name: string, ixs: TransactionInstruction[], expect: number) 
   const tx = new VersionedTransaction(new TransactionMessage({ payerKey: payer.publicKey, recentBlockhash: blockhash, instructions: [ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }), ...ixs] }).compileToV0Message());
   tx.sign([payer]);
   const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: true });
-  await conn.confirmTransaction(sig, "confirmed");
-  const t = await conn.getTransaction(sig, { maxSupportedTransactionVersion: 0, commitment: "confirmed" });
+  await conn.confirmTransaction(sig, "confirmed").catch(() => {});
+  let t = null;
+  for (let i = 0; i < 20 && !t; i++) { t = await conn.getTransaction(sig, { maxSupportedTransactionVersion: 0, commitment: "confirmed" }).catch(() => null); if (!t) await new Promise((r) => setTimeout(r, 1000)); }
+
   const code = Number(JSON.stringify(t?.meta?.err ?? "").match(/"Custom":(\d+)/)?.[1] ?? -1);
   console.log(`${code === expect ? "PASS" : "FAIL"}  ${name}: ${GUARD_ERRORS[code] ?? JSON.stringify(t?.meta?.err)}  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
 }
