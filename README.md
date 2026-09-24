@@ -13,6 +13,14 @@ Built for STOCKLANA (Solana Foundation, Sept 2026): Main track, PreStocks bounty
 
 Live app: https://rehearsal-stocklana.vercel.app
 
+## Blink: the check where traders already are
+
+Any token has a Solana Action at `/api/actions/rehearse/<SYMBOL>`, and `/rehearse/<SYMBOL>` is a shareable link that `actions.json` maps to it. The card image is rendered live (`/api/actions/card/<SYMBOL>`) with the current gap vs fair value. The buttons build a buy for the clicking wallet, re-quoted at click time, with the transfer fee counted in slippage. When the token looks bad, the buttons say "Buy anyway". When the guard is live on the cluster, the Blink's buy runs inside it.
+
+Try it: https://dial.to/?action=solana-action:https://rehearsal-stocklana.vercel.app/api/actions/rehearse/OPENAI
+
+`scripts/fork-blink-test.ts` clicks the Blink like a wallet on the mainnet fork. NVDAx filled inside the guard. OPENAI was blocked on-chain at 39.35% over mark.
+
 ## What it found (24 Sep 2026, live mainnet data)
 
 | | Reference | $1,000 fill | Gap |
