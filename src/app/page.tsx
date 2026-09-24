@@ -371,6 +371,7 @@ function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
         )}
         {ref && !ref.account && <div>Reference: <span className="text-ink">{ref.detail}</span></div>}
         {r.uiMultiplier !== 1 && <div>Token-2022 multiplier {r.uiMultiplier.toFixed(4)}× applied (splits and dividends)</div>}
+        {r.transferFeeBps > 0 && <div>Token-2022 transfer fee {(r.transferFeeBps / 100).toFixed(2)}% withheld on every transfer, included in the fill above</div>}
       </div>
 
       <div className="mt-4 rounded-xl border border-line p-3.5">

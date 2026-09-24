@@ -23,6 +23,7 @@ export type Rehearsal = {
   usd: number;
   tokens: number; // shares as a wallet displays them
   uiMultiplier: number;
+  transferFeeBps: number;
   fillPrice: number;
   spotPrice: number | null;
   sizeImpactPct: number | null;
@@ -103,21 +104,28 @@ export async function rehearse(asset: Asset, usd: number, side: "buy" | "sell", 
   const [ref, mults] = await Promise.all([reference(asset, conn).catch(() => null), mintInfos(conn, [asset.mint]).catch(() => new Map())]);
   // Token-2022 scaled UI amount: one raw unit is `mult` shares as the wallet shows them.
   const mult = mults.get(asset.mint)?.multiplier ?? 1;
+  // Token-2022 transfer fee (PreStocks: 1%) is withheld from every transfer of the stock,
+  // pool-to-buyer included, so buyers receive less than Jupiter's outAmount and sellers
+  // deliver less than they send. Slippage has to leave room for it or the swap fails.
+  const feeBps = mults.get(asset.mint)?.transferFeeBps ?? 0;
+  const keep = 1 - feeBps / 10_000;
+  const slip = 100 + feeBps + (feeBps ? 50 : 0);
   const toUi = (raw: string) => ui(raw, asset.decimals) * mult;
   const toRaw = (shares: number) => units(shares / mult, asset.decimals);
+  const afterFee = (raw: bigint) => BigInt(Math.floor(Number(raw) * keep));
   let q: Quote | { error: string };
   let tokens: number;
   let fillPrice: number;
   if (side === "buy") {
-    q = await quote(USDC, asset.mint, units(usd, 6));
+    q = await quote(USDC, asset.mint, units(usd, 6), slip);
     if ("error" in q) return q;
-    tokens = toUi(q.outAmount);
+    tokens = toUi(q.outAmount) * keep;
     fillPrice = usd / tokens;
   } else {
     const px = ref?.price ?? null;
     if (!px) return { error: "Selling needs a reference price to size the order" };
     tokens = usd / px;
-    q = await quote(asset.mint, USDC, toRaw(tokens));
+    q = await quote(asset.mint, USDC, afterFee(toRaw(tokens)), slip);
     if ("error" in q) return q;
     fillPrice = ui(q.outAmount, 6) / tokens;
   }
@@ -126,21 +134,21 @@ export async function rehearse(asset: Asset, usd: number, side: "buy" | "sell", 
   const probeUsd = Math.min(10, usd);
   const probe = side === "buy"
     ? await quote(USDC, asset.mint, units(probeUsd, 6))
-    : await quote(asset.mint, USDC, toRaw(probeUsd / (ref?.price ?? fillPrice)));
+    : await quote(asset.mint, USDC, afterFee(toRaw(probeUsd / (ref?.price ?? fillPrice))));
   const spotPrice = "error" in probe ? null
-    : side === "buy" ? probeUsd / toUi(probe.outAmount)
-    : ui(probe.outAmount, 6) / toUi(probe.inAmount);
+    : side === "buy" ? probeUsd / (toUi(probe.outAmount) * keep)
+    : ui(probe.outAmount, 6) / (toUi(probe.inAmount) / keep);
 
   let roundTripCostPct: number | null = null;
   if (side === "buy") {
-    const back = await quote(asset.mint, USDC, BigInt(q.outAmount));
+    const back = await quote(asset.mint, USDC, afterFee(afterFee(BigInt(q.outAmount))));
     if (!("error" in back)) roundTripCostPct = (1 - ui(back.outAmount, 6) / usd) * 100;
   }
 
   const premiumPct = ref ? (side === "buy" ? fillPrice / ref.price - 1 : 1 - fillPrice / ref.price) * 100 : null;
   const base = {
     asset: { symbol: asset.symbol, name: asset.name, mint: asset.mint, kind: asset.kind, icon: asset.icon },
-    side, usd, tokens, fillPrice, spotPrice, uiMultiplier: mult,
+    side, usd, tokens, fillPrice, spotPrice, uiMultiplier: mult, transferFeeBps: feeBps,
     sizeImpactPct: spotPrice ? Math.abs(fillPrice / spotPrice - 1) * 100 : null,
     roundTripCostPct,
     route: q.routePlan.map((s) => s.swapInfo.label),

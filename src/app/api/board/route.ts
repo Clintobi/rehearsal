@@ -43,7 +43,8 @@ export async function GET() {
     const base = { symbol: a.symbol, name: a.name, mint: a.mint, kind: a.kind, icon: a.icon, refPrice, refSource,
       marketOpen: a.pyth ? marketStatus(a.pyth.schedule).open : null };
     if ("error" in q) return { ...base, fillPrice: null, premiumPct: null, impactPct: null, error: q.error };
-    const fillPrice = PROBE_USD / ((Number(q.outAmount) / 10 ** a.decimals) * (mults.get(a.mint)?.multiplier ?? 1));
+    const info = mults.get(a.mint);
+    const fillPrice = PROBE_USD / ((Number(q.outAmount) / 10 ** a.decimals) * (info?.multiplier ?? 1) * (1 - (info?.transferFeeBps ?? 0) / 10_000));
     return { ...base, fillPrice, premiumPct: refPrice ? (fillPrice / refPrice - 1) * 100 : null, impactPct: Number(q.priceImpactPct) * 100 };
   });
   const body = { probeUsd: PROBE_USD, at: Date.now(), rows };

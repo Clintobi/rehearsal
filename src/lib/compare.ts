@@ -70,10 +70,10 @@ export async function compare(slug: string, usd: number): Promise<Company | { er
     const base = { symbol: a.symbol, issuer: a.issuer, kind: a.kind, mint: a.mint, icon: a.icon, exitFeeBps: info.transferFeeBps, multiplier: info.multiplier, structure: STRUCTURE[a.kind] };
     const q = await quote(USDC, a.mint, BigInt(Math.round(usd * 1e6)));
     if ("error" in q) { routes.push({ ...base, fill: null, tokens: null, roundTripPct: null, impact: null, impliedValuation: null, unitsBasis: "", error: q.error }); continue; }
-    const tokens = (Number(q.outAmount) / 10 ** a.decimals) * info.multiplier;
+    const tokens = (Number(q.outAmount) / 10 ** a.decimals) * info.multiplier * (1 - info.transferFeeBps / 10_000);
     const fill = usd / tokens;
     // Selling back: a Token-2022 transfer fee is withheld from what reaches the pool.
-    const sellRaw = BigInt(Math.floor(Number(q.outAmount) * (1 - info.transferFeeBps / 10_000)));
+    const sellRaw = BigInt(Math.floor(Number(q.outAmount) * (1 - info.transferFeeBps / 10_000) ** 2));
     const back = await quote(a.mint, USDC, sellRaw);
     const roundTripPct = "error" in back ? null : (1 - Number(back.outAmount) / 1e6 / usd) * 100;
     let impliedValuation: number | null = null;
