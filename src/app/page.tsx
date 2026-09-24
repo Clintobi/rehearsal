@@ -11,6 +11,7 @@ const WalletMultiButton = dynamic(() => import("@solana/wallet-adapter-react-ui"
 type AssetOpt = { symbol: string; name: string; mint: string; kind: "xstock" | "prestock"; icon?: string; ref: string | null };
 
 const GUARD_LIVE = process.env.NEXT_PUBLIC_GUARD_LIVE === "1";
+const GUARD_DEVNET = process.env.NEXT_PUBLIC_GUARD_DEVNET === "1";
 const GUARD_ID = process.env.NEXT_PUBLIC_GUARD_PROGRAM_ID ?? "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE";
 const usdFmt = (n: number, d = 2) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (n: number | null | undefined, d = 2) => (n == null ? "–" : `${n > 0 ? "+" : ""}${n.toFixed(d)}%`);
@@ -314,7 +315,7 @@ function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
               and reverts everything if the fill is more than
               <input type="number" min={0} max={5000} step={10} value={tol} onChange={(e) => setTol(Number(e.target.value))}
                 className="num mx-1 w-16 rounded border border-line px-1 text-ink" /> bps worse.
-              {!GUARD_LIVE && <> The program is live on devnet (<a className="underline" href={`https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet`} target="_blank" rel="noreferrer">{short(GUARD_ID)}</a>); the mainnet deploy is pending, so mainnet trades go through unguarded.</>}
+              {!GUARD_LIVE && <> The program (<a className="underline" href={GUARD_DEVNET ? `https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet` : "https://github.com/Clintobi/rehearsal/tree/main/onchain"} target="_blank" rel="noreferrer">{short(GUARD_ID)}</a>) passes 9/9 end-to-end tests on a mainnet fork{GUARD_DEVNET ? " and is deployed on devnet" : ""}. It isn&apos;t on mainnet yet, so mainnet trades here go through unguarded.</>}
             </span>
           </span>
         </label>
