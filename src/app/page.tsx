@@ -158,6 +158,8 @@ export default function Home() {
         </section>
       </div>
 
+      <WalletCheck />
+
       {/* Board */}
       <section className="mt-14">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -211,6 +213,72 @@ export default function Home() {
         Quotes from Jupiter · reference prices read from Pyth price accounts on Solana and the PreStocks API · not investment advice.
       </footer>
     </main>
+  );
+}
+
+type Holding = { symbol: string; name: string; kind: string; mint: string; icon?: string; shares: number; fairPrice: number | null; fairSource: string | null; fairValue: number | null; exitValue: number | null; exitGapPct: number | null; transferFeeBps: number; multiplier: number };
+
+function WalletCheck() {
+  const { publicKey } = useWallet();
+  const [addr, setAddr] = useState("");
+  const [data, setData] = useState<{ holdings: Holding[]; totals: { fair: number; exit: number; stuck: number } } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  // Falls back to the connected wallet when the box is empty.
+  const target = addr.trim() || publicKey?.toBase58() || "";
+
+  async function check() {
+    setLoading(true); setErr(null); setData(null);
+    const j = await fetch(`/api/wallet?address=${target}`).then((r) => r.json()).catch(() => ({ error: "Could not reach the server" }));
+    if (j.error) setErr(j.error); else setData(j);
+    setLoading(false);
+  }
+
+  return (
+    <section className="mt-14">
+      <h2 className="text-2xl font-semibold tracking-tight">What are your tokenized stocks really worth?</h2>
+      <p className="mt-1 max-w-3xl text-sm text-mute">
+        Paste any wallet. For each xStock and PreStocks position you get the fair value (Pyth or the PreStocks mark) next to what selling it on Jupiter right now would actually pay,
+        after the Token-2022 transfer fee and scaled-UI multiplier.
+      </p>
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder={publicKey ? `Your wallet: ${publicKey.toBase58()}` : "Solana wallet address"}
+          className="num w-full rounded-xl border border-line bg-card px-3 py-2.5 text-sm outline-none focus:border-ink" />
+        <button onClick={check} disabled={loading || target.length < 32}
+          className="shrink-0 rounded-xl bg-ink px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">{loading ? "Quoting every exit…" : "Check wallet"}</button>
+      </div>
+      {err && <p className="mt-3 text-sm text-bad">{err}</p>}
+      {data && data.holdings.length === 0 && <p className="mt-3 text-sm text-mute">No xStocks or PreStocks in this wallet.</p>}
+      {data && data.holdings.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-line bg-card">
+          <div className="grid grid-cols-1 gap-px border-b border-line bg-line sm:grid-cols-3">
+            <div className="bg-card p-4"><div className="text-xs text-mute">Fair value</div><div className="num mt-1 text-xl font-semibold">{usdFmt(data.totals.fair, 0)}</div></div>
+            <div className="bg-card p-4"><div className="text-xs text-mute">Sell everything now</div><div className="num mt-1 text-xl font-semibold">{usdFmt(data.totals.exit, 0)}</div></div>
+            <div className="bg-card p-4"><div className="text-xs text-mute">No on-chain exit at this size</div>
+              <div className={`num mt-1 text-xl font-semibold ${data.totals.stuck > 0 ? "text-bad" : ""}`}>{usdFmt(data.totals.stuck, 0)}</div></div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-mute"><tr>
+                <th className="px-4 py-3 font-medium">Position</th><th className="px-4 py-3 text-right font-medium">Fair value</th>
+                <th className="px-4 py-3 text-right font-medium">Sell now</th><th className="px-4 py-3 text-right font-medium">Exit vs fair</th><th className="px-4 py-3 font-medium">Fees &amp; scaling</th></tr></thead>
+              <tbody>{data.holdings.map((h) => (
+                <tr key={h.mint} className="border-t border-line/70">
+                  <td className="px-4 py-2.5"><div className="flex items-center gap-2.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {h.icon ? <img src={h.icon} alt="" className="h-6 w-6 rounded-full bg-paper object-cover" /> : <div className="h-6 w-6 rounded-full bg-paper" />}
+                    <div><div className="font-medium">{h.symbol}</div><div className="num text-xs text-mute">{h.shares.toLocaleString("en-US", { maximumFractionDigits: 4 })} shown in wallet</div></div></div></td>
+                  <td className="num px-4 py-2.5 text-right">{h.fairValue != null ? usdFmt(h.fairValue) : "–"}<div className="text-xs text-mute">{h.fairSource}</div></td>
+                  <td className="num px-4 py-2.5 text-right">{h.exitValue != null ? usdFmt(h.exitValue) : <span className="text-bad">no route</span>}</td>
+                  <td className={`num px-4 py-2.5 text-right font-semibold ${h.exitGapPct == null ? "text-mute" : h.exitGapPct > 5 ? "text-bad" : h.exitGapPct > 1 ? "text-warn" : "text-good"}`}>
+                    {h.exitGapPct == null ? "–" : `${h.exitGapPct > 0 ? "−" : "+"}${Math.abs(h.exitGapPct).toFixed(2)}%`}</td>
+                  <td className="px-4 py-2.5 text-xs text-mute">{h.transferFeeBps ? `${(h.transferFeeBps / 100).toFixed(2)}% sell fee` : "no fee"}{h.multiplier !== 1 ? ` · ${h.multiplier.toFixed(4)}× multiplier` : ""}</td>
+                </tr>))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
