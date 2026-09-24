@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/actions/rehe
   return NextResponse.json({
     type: "action",
     icon: `${base}/api/actions/card/${asset.symbol}?t=${Math.floor(Date.now() / 60_000)}`,
-    title: gap == null ? `${asset.name}: check the price before you buy` : `${asset.symbol} fills ${pct(gap)} vs fair value right now`,
+    title: gap == null ? `${asset.name}: check the price before you buy` : `${asset.symbol} fills ${pct(gap)} vs ${asset.kind === "prestock" ? "its PreStocks mark" : "the real stock"} right now`,
     description: ok
       ? `${r.verdict.headline} A $1,000 buy fills at $${r.fillPrice.toFixed(2)} on Jupiter vs $${r.reference?.price.toFixed(2) ?? "?"} from ${refLabel}, after Token-2022 fees and multipliers.${
           GUARD_LIVE ? " Buys run inside the Rehearsal Guard program, which reverts the trade if the fill is worse than fair value by more than your tolerance." : ""}`
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/actions/reh
   const built = GUARD_LIVE ? await guardedSwapTx(r.quote, account, tol).catch(() => null) : await buildSwap(r.quote, account);
   const transaction = built?.swapTransaction;
   if (!transaction) return NextResponse.json({ message: "Jupiter could not build this swap" }, { status: 502, headers: ACTION_HEADERS });
-  const gap = r.premiumPct != null ? ` ${pct(r.premiumPct)} vs fair value.` : "";
+  const gap = r.premiumPct != null ? ` ${pct(r.premiumPct)} vs ${asset.kind === "prestock" ? "the PreStocks mark" : "Pyth"}.` : "";
   return NextResponse.json({
     type: "transaction",
     transaction,
