@@ -53,6 +53,7 @@ export type GuardLegs = {
   inputMint: PublicKey; inputTokenProgram: PublicKey;
   outputMint: PublicKey; outputTokenProgram: PublicKey;
   priceUpdate?: PublicKey; // Pyth PriceUpdateV2 account when the policy uses Pyth
+  breaker?: PublicKey; // shared circuit breaker for the stock's feed; crank it in the same tx
 };
 
 export function openGuardIx(l: GuardLegs, policy: Policy): TransactionInstruction {
@@ -84,12 +85,69 @@ export function closeGuardIx(l: GuardLegs): TransactionInstruction {
       { pubkey: ata(l.user, l.outputMint, l.outputTokenProgram), isSigner: false, isWritable: false },
       // Anchor encodes a missing Option<Account> as the program id itself
       { pubkey: l.priceUpdate ?? GUARD_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: l.breaker ?? GUARD_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: pda("ledger", l.user), isSigner: false, isWritable: true },
       { pubkey: pda("stats"), isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data: disc("close_guard"),
   });
+}
+
+export const breakerPda = (feedIdHex: string) =>
+  PublicKey.findProgramAddressSync([Buffer.from("breaker"), Buffer.from(feedIdHex.replace(/^0x/, ""), "hex")], GUARD_PROGRAM_ID)[0];
+
+export function initBreakerIx(authority: PublicKey, feedIdHex: string, bandBps: number, limitSecs = 15, pauseSecs = 300, maxAgeSecs = 120) {
+  const d = Buffer.alloc(8 + 32 + 2 + 4 + 4 + 4);
+  disc("init_breaker").copy(d, 0);
+  Buffer.from(feedIdHex.replace(/^0x/, ""), "hex").copy(d, 8);
+  d.writeUInt16LE(bandBps, 40); d.writeUInt32LE(limitSecs, 42); d.writeUInt32LE(pauseSecs, 46); d.writeUInt32LE(maxAgeSecs, 50);
+  return new TransactionInstruction({
+    programId: GUARD_PROGRAM_ID, data: d,
+    keys: [
+      { pubkey: authority, isSigner: true, isWritable: true },
+      { pubkey: breakerPda(feedIdHex), isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
+export const crankBreakerIx = (feedIdHex: string, priceUpdate: PublicKey) => new TransactionInstruction({
+  programId: GUARD_PROGRAM_ID, data: disc("crank_breaker"),
+  keys: [{ pubkey: breakerPda(feedIdHex), isSigner: false, isWritable: true }, { pubkey: priceUpdate, isSigner: false, isWritable: false }],
+});
+
+export function setHaltIx(authority: PublicKey, feedIdHex: string, halted: boolean, reason = "") {
+  const r = Buffer.alloc(4); Buffer.from(reason.slice(0, 4), "ascii").copy(r);
+  return new TransactionInstruction({
+    programId: GUARD_PROGRAM_ID, data: Buffer.concat([disc("set_halt"), Buffer.from([halted ? 1 : 0]), r]),
+    keys: [{ pubkey: authority, isSigner: true, isWritable: false }, { pubkey: breakerPda(feedIdHex), isSigner: false, isWritable: true }],
+  });
+}
+
+export const checkBreakerIx = (feedIdHex: string) => new TransactionInstruction({
+  programId: GUARD_PROGRAM_ID, data: disc("check_breaker"), keys: [{ pubkey: breakerPda(feedIdHex), isSigner: false, isWritable: false }],
+});
+
+export type BreakerView = {
+  state: "normal" | "limit" | "paused"; bandBps: number; referenceE6: bigint; lastPriceE6: bigint; lastCrank: number;
+  pausedUntil: number; exchangeHalted: boolean; haltReason: string; haltSince: number; trips: number;
+};
+export function decodeBreaker(data: Buffer): BreakerView {
+  let o = 8 + 32 + 32;
+  const bandBps = data.readUInt16LE(o); o += 2 + 4 + 4 + 4 + 4;
+  const referenceE6 = data.readBigUInt64LE(o); o += 8;
+  const lastPriceE6 = data.readBigUInt64LE(o); o += 8;
+  o += 8; // last_publish
+  const lastCrank = Number(data.readBigInt64LE(o)); o += 8;
+  const state = (["normal", "limit", "paused"] as const)[data[o]]; o += 1;
+  o += 8; // state_since
+  const pausedUntil = Number(data.readBigInt64LE(o)); o += 8;
+  const exchangeHalted = data[o] === 1; o += 1;
+  const haltReason = data.subarray(o, o + 4).toString("ascii").replace(/\0/g, ""); o += 4;
+  const haltSince = Number(data.readBigInt64LE(o)); o += 8;
+  const trips = data.readUInt32LE(o);
+  return { state, bandBps, referenceE6, lastPriceE6, lastCrank, pausedUntil, exchangeHalted, haltReason, haltSince, trips };
 }
 
 // Jupiter /swap-instructions response, trimmed to what we use.
@@ -105,7 +163,7 @@ const toIx = (i: JupIx) => new TransactionInstruction({
   data: Buffer.from(i.data, "base64"),
 });
 
-export async function buildGuardedSwap(conn: Connection, jup: JupSwapIxs, legs: GuardLegs, policy: Policy) {
+export async function buildGuardedSwap(conn: Connection, jup: JupSwapIxs, legs: GuardLegs, policy: Policy, beforeClose: TransactionInstruction[] = []) {
   const alts = (await Promise.all(jup.addressLookupTableAddresses.map((a) => conn.getAddressLookupTable(new PublicKey(a)))))
     .map((r) => r.value).filter((v): v is AddressLookupTableAccount => !!v);
   const ixs = [
@@ -116,6 +174,7 @@ export async function buildGuardedSwap(conn: Connection, jup: JupSwapIxs, legs: 
     toIx(jup.swapInstruction),
     ...(jup.cleanupInstruction ? [toIx(jup.cleanupInstruction)] : []),
     ...(jup.otherInstructions ?? []).map(toIx),
+    ...beforeClose,
     closeGuardIx(legs),
   ];
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
@@ -141,4 +200,9 @@ export const GUARD_ERRORS: Record<number, string> = {
   6013: "Swap delivered nothing",
   6014: "Overflow",
   6015: "Malformed mint data",
+  6016: "Circuit breaker: trading paused or in a limit state",
+  6017: "The primary exchange has halted this stock",
+  6018: "Circuit breaker not cranked recently",
+  6019: "Breaker parameters out of range",
+  6020: "Breaker is for a different feed",
 };

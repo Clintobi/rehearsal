@@ -8,6 +8,49 @@
   },
   "instructions": [
     {
+      "name": "check_breaker",
+      "docs": [
+        "For any venue to CPI before a fill: fails unless the stock is tradeable right now."
+      ],
+      "discriminator": [
+        253,
+        69,
+        25,
+        4,
+        49,
+        188,
+        253,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "breaker",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "breaker.feed_id",
+                "account": "Breaker"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "close_guard",
       "discriminator": [
         132,
@@ -79,6 +122,13 @@
           "optional": true
         },
         {
+          "name": "breaker",
+          "docs": [
+            "Optional shared circuit breaker for the stock's feed."
+          ],
+          "optional": true
+        },
+        {
           "name": "ledger",
           "writable": true,
           "pda": {
@@ -125,6 +175,128 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "crank_breaker",
+      "docs": [
+        "Permissionless: anyone can advance the breaker from the latest Pyth price."
+      ],
+      "discriminator": [
+        153,
+        156,
+        207,
+        50,
+        255,
+        57,
+        236,
+        49
+      ],
+      "accounts": [
+        {
+          "name": "breaker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "breaker.feed_id",
+                "account": "Breaker"
+              }
+            ]
+          }
+        },
+        {
+          "name": "price_update"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_breaker",
+      "discriminator": [
+        212,
+        190,
+        66,
+        122,
+        100,
+        186,
+        50,
+        149
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "breaker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "feed_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "feed_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "band_bps",
+          "type": "u16"
+        },
+        {
+          "name": "limit_secs",
+          "type": "u32"
+        },
+        {
+          "name": "pause_secs",
+          "type": "u32"
+        },
+        {
+          "name": "max_age_secs",
+          "type": "u32"
+        }
+      ]
     },
     {
       "name": "open_guard",
@@ -200,9 +372,87 @@
           }
         }
       ]
+    },
+    {
+      "name": "set_halt",
+      "docs": [
+        "Mirrors a primary-exchange halt or resumption (posted from the exchange's halt feed)."
+      ],
+      "discriminator": [
+        212,
+        192,
+        179,
+        66,
+        23,
+        73,
+        197,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "breaker"
+          ]
+        },
+        {
+          "name": "breaker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "breaker.feed_id",
+                "account": "Breaker"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "halted",
+          "type": "bool"
+        },
+        {
+          "name": "reason",
+          "type": {
+            "array": [
+              "u8",
+              4
+            ]
+          }
+        }
+      ]
     }
   ],
   "accounts": [
+    {
+      "name": "Breaker",
+      "discriminator": [
+        191,
+        124,
+        153,
+        200,
+        93,
+        58,
+        14,
+        255
+      ]
+    },
     {
       "name": "Guard",
       "discriminator": [
@@ -244,6 +494,19 @@
     }
   ],
   "events": [
+    {
+      "name": "BreakerChanged",
+      "discriminator": [
+        150,
+        231,
+        34,
+        202,
+        50,
+        167,
+        73,
+        145
+      ]
+    },
     {
       "name": "GuardedFill",
       "discriminator": [
@@ -338,9 +601,212 @@
       "code": 6015,
       "name": "BadMintData",
       "msg": "Mint extension data is malformed"
+    },
+    {
+      "code": 6016,
+      "name": "TradingPaused",
+      "msg": "Circuit breaker: trading in this stock is paused or in a limit state"
+    },
+    {
+      "code": 6017,
+      "name": "ExchangeHalted",
+      "msg": "The primary exchange has halted the underlying stock"
+    },
+    {
+      "code": 6018,
+      "name": "BreakerStale",
+      "msg": "Circuit breaker has not been cranked recently; crank it in the same transaction"
+    },
+    {
+      "code": 6019,
+      "name": "BadBreakerParams",
+      "msg": "Breaker parameters out of range"
+    },
+    {
+      "code": 6020,
+      "name": "WrongBreaker",
+      "msg": "Breaker is for a different feed than the guard policy"
     }
   ],
   "types": [
+    {
+      "name": "Breaker",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "band_bps",
+            "docs": [
+              "Band around the rolling reference: 500 = 5% (LULD Tier 1), 1000 = 10% (Tier 2)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "limit_secs",
+            "type": "u32"
+          },
+          {
+            "name": "pause_secs",
+            "type": "u32"
+          },
+          {
+            "name": "max_age_secs",
+            "type": "u32"
+          },
+          {
+            "name": "window_secs",
+            "docs": [
+              "Time constant of the rolling reference, seconds (300 ≈ the LULD 5-minute average)."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "reference_e6",
+            "type": "u64"
+          },
+          {
+            "name": "last_price_e6",
+            "type": "u64"
+          },
+          {
+            "name": "last_publish",
+            "type": "i64"
+          },
+          {
+            "name": "last_crank",
+            "type": "i64"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "BreakerState"
+              }
+            }
+          },
+          {
+            "name": "state_since",
+            "type": "i64"
+          },
+          {
+            "name": "paused_until",
+            "type": "i64"
+          },
+          {
+            "name": "exchange_halted",
+            "type": "bool"
+          },
+          {
+            "name": "halt_reason",
+            "docs": [
+              "Primary-exchange reason code, e.g. \"LUDP\", \"T1\", \"M\"."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                4
+              ]
+            }
+          },
+          {
+            "name": "halt_since",
+            "type": "i64"
+          },
+          {
+            "name": "trips",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BreakerChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "BreakerState"
+              }
+            }
+          },
+          {
+            "name": "exchange_halted",
+            "type": "bool"
+          },
+          {
+            "name": "halt_reason",
+            "type": {
+              "array": [
+                "u8",
+                4
+              ]
+            }
+          },
+          {
+            "name": "price_e6",
+            "type": "u64"
+          },
+          {
+            "name": "reference_e6",
+            "type": "u64"
+          },
+          {
+            "name": "deviation_bps",
+            "type": "u64"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BreakerState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Normal"
+          },
+          {
+            "name": "Limit"
+          },
+          {
+            "name": "Paused"
+          }
+        ]
+      }
+    },
     {
       "name": "Guard",
       "docs": [

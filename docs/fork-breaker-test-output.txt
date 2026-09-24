@@ -1,0 +1,29 @@
+
+PASS  1. init NVDA breaker (5% band) and crank
+      state=normal ref=$223.90
+PASS  2. guarded NVDAx buy with breaker in Normal: fills
+      filled 
+PASS  3. NVDA +8% shock → breaker enters Limit
+      state=limit
+PASS  4. guarded buy during Limit: reverts
+      Circuit breaker: trading paused or in a limit state 
+PASS  5. still outside band after 15s → Paused for 5 min
+      state=paused trips=1 paused_until=+300s
+PASS  6. guarded buy during Pause: reverts
+      Circuit breaker: trading paused or in a limit state 
+PASS  7. check_breaker (for any venue's CPI) during Pause: fails
+      Circuit breaker: trading paused or in a limit state 
+PASS  8. pause ends → reopens against the new price
+      state=normal ref=$241.82
+PASS  9. Nasdaq halt posted (reason T1)
+      halted=true reason=T1
+PASS  10. guarded buy while the exchange is halted: reverts
+      The primary exchange has halted this stock 
+PASS  11. a stranger cannot lift the halt
+      TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE failed: custom program error: 0x7d1
+PASS  12. halt lifted → guarded buy fills
+      filled 
+PASS  13. breaker not cranked for 90s and no crank in the tx: reverts as stale
+      Circuit breaker not cranked recently 
+
+13/13 passed

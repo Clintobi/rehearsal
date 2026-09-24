@@ -34,4 +34,14 @@ pub enum GuardError {
     Overflow,
     #[msg("Mint extension data is malformed")]
     BadMintData,
+    #[msg("Circuit breaker: trading in this stock is paused or in a limit state")]
+    TradingPaused,
+    #[msg("The primary exchange has halted the underlying stock")]
+    ExchangeHalted,
+    #[msg("Circuit breaker has not been cranked recently; crank it in the same transaction")]
+    BreakerStale,
+    #[msg("Breaker parameters out of range")]
+    BadBreakerParams,
+    #[msg("Breaker is for a different feed than the guard policy")]
+    WrongBreaker,
 }

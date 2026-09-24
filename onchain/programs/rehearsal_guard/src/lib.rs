@@ -8,18 +8,30 @@ use anchor_lang::solana_program::sysvar::instructions::{
 };
 use anchor_spl::token_interface::{Mint, TokenAccount};
 
+pub mod breaker;
 pub mod errors;
 pub mod math;
 pub mod oracle;
 pub mod state;
 pub mod tokens;
 
+use breaker::{Breaker, BreakerChanged, BreakerState};
 use errors::GuardError;
 use state::*;
 
 declare_id!("TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE");
 
 pub const MAX_TOLERANCE_BPS: u16 = 5_000;
+/// A breaker older than this can't vouch for the current state; crank it in the same tx.
+pub const BREAKER_MAX_STALENESS_SECS: i64 = 60;
+
+/// Tradeable = cranked recently, not paused or in a limit state, and the exchange isn't halted.
+pub fn require_tradeable(b: &Breaker, now: i64) -> Result<()> {
+    require!(!b.exchange_halted, GuardError::ExchangeHalted);
+    require!(now - b.last_crank <= BREAKER_MAX_STALENESS_SECS, GuardError::BreakerStale);
+    require!(b.state == BreakerState::Normal, GuardError::TradingPaused);
+    Ok(())
+}
 
 #[program]
 pub mod rehearsal_guard {
@@ -61,6 +73,13 @@ pub mod rehearsal_guard {
         let clock = Clock::get()?;
         let g = &ctx.accounts.guard;
         let policy = g.policy;
+
+        if let Some(b) = ctx.accounts.breaker.as_ref() {
+            if let Reference::Pyth { feed_id, .. } = policy.reference {
+                require!(b.feed_id == feed_id, GuardError::WrongBreaker);
+            }
+            require_tradeable(b, clock.unix_timestamp)?;
+        }
 
         let spent = g
             .input_before
@@ -156,6 +175,82 @@ pub mod rehearsal_guard {
         });
         Ok(())
     }
+
+    pub fn init_breaker(
+        ctx: Context<InitBreaker>,
+        feed_id: [u8; 32],
+        band_bps: u16,
+        limit_secs: u32,
+        pause_secs: u32,
+        max_age_secs: u32,
+    ) -> Result<()> {
+        require!((50..=5_000).contains(&band_bps), GuardError::BadBreakerParams);
+        require!(limit_secs <= 600 && (10..=3_600).contains(&pause_secs) && max_age_secs > 0, GuardError::BadBreakerParams);
+        let b = &mut ctx.accounts.breaker;
+        b.feed_id = feed_id;
+        b.authority = ctx.accounts.authority.key();
+        b.band_bps = band_bps;
+        b.limit_secs = limit_secs;
+        b.pause_secs = pause_secs;
+        b.max_age_secs = max_age_secs;
+        b.window_secs = 300;
+        b.state = BreakerState::Normal;
+        b.state_since = Clock::get()?.unix_timestamp;
+        b.bump = ctx.bumps.breaker;
+        Ok(())
+    }
+
+    /// Permissionless: anyone can advance the breaker from the latest Pyth price.
+    pub fn crank_breaker(ctx: Context<CrankBreaker>) -> Result<()> {
+        let now = Clock::get()?.unix_timestamp;
+        let b = &mut ctx.accounts.breaker;
+        let p = oracle::read_pyth(&ctx.accounts.price_update, &b.feed_id, b.max_age_secs, 10_000, now)?;
+        let price_e6 = oracle::to_e6(&p)?;
+        let dt = if b.last_publish == 0 { 0 } else { (p.publish_time - b.last_publish).max(0) };
+        let before = b.state;
+        let x = breaker::step(
+            b.reference_e6, b.state, b.state_since, b.paused_until, price_e6, dt, now,
+            b.band_bps, b.limit_secs, b.pause_secs, b.window_secs,
+        );
+        b.reference_e6 = x.reference_e6;
+        b.state = x.state;
+        b.state_since = x.state_since;
+        b.paused_until = x.paused_until;
+        if x.tripped {
+            b.trips = b.trips.saturating_add(1);
+        }
+        b.last_price_e6 = price_e6;
+        b.last_publish = b.last_publish.max(p.publish_time);
+        b.last_crank = now;
+        if before != b.state {
+            emit!(BreakerChanged {
+                feed_id: b.feed_id, state: b.state, exchange_halted: b.exchange_halted, halt_reason: b.halt_reason,
+                price_e6, reference_e6: b.reference_e6, deviation_bps: x.deviation_bps, at: now,
+            });
+        }
+        Ok(())
+    }
+
+    /// Mirrors a primary-exchange halt or resumption (posted from the exchange's halt feed).
+    pub fn set_halt(ctx: Context<SetHalt>, halted: bool, reason: [u8; 4]) -> Result<()> {
+        let now = Clock::get()?.unix_timestamp;
+        let b = &mut ctx.accounts.breaker;
+        if b.exchange_halted != halted {
+            b.exchange_halted = halted;
+            b.halt_reason = if halted { reason } else { [0; 4] };
+            b.halt_since = now;
+            emit!(BreakerChanged {
+                feed_id: b.feed_id, state: b.state, exchange_halted: halted, halt_reason: b.halt_reason,
+                price_e6: b.last_price_e6, reference_e6: b.reference_e6, deviation_bps: 0, at: now,
+            });
+        }
+        Ok(())
+    }
+
+    /// For any venue to CPI before a fill: fails unless the stock is tradeable right now.
+    pub fn check_breaker(ctx: Context<CheckBreaker>) -> Result<()> {
+        require_tradeable(&ctx.accounts.breaker, Clock::get()?.unix_timestamp)
+    }
 }
 
 /// Scans the rest of the transaction for `close_guard` on the same guard account.
@@ -228,6 +323,8 @@ pub struct CloseGuard<'info> {
     pub output_account: InterfaceAccount<'info, TokenAccount>,
     /// CHECK: validated in `oracle::read_pyth` (owner, discriminator, feed id, age, confidence).
     pub price_update: Option<UncheckedAccount<'info>>,
+    /// Optional shared circuit breaker for the stock's feed.
+    pub breaker: Option<Account<'info, Breaker>>,
     #[account(
         init_if_needed,
         payer = user,
@@ -245,4 +342,35 @@ pub struct CloseGuard<'info> {
     )]
     pub stats: Account<'info, Stats>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(feed_id: [u8; 32])]
+pub struct InitBreaker<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    #[account(init, payer = authority, space = 8 + Breaker::INIT_SPACE, seeds = [b"breaker", feed_id.as_ref()], bump)]
+    pub breaker: Account<'info, Breaker>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CrankBreaker<'info> {
+    #[account(mut, seeds = [b"breaker", breaker.feed_id.as_ref()], bump = breaker.bump)]
+    pub breaker: Account<'info, Breaker>,
+    /// CHECK: validated in `oracle::read_pyth` against the breaker's feed id.
+    pub price_update: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetHalt<'info> {
+    pub authority: Signer<'info>,
+    #[account(mut, has_one = authority, seeds = [b"breaker", breaker.feed_id.as_ref()], bump = breaker.bump)]
+    pub breaker: Account<'info, Breaker>,
+}
+
+#[derive(Accounts)]
+pub struct CheckBreaker<'info> {
+    #[account(seeds = [b"breaker", breaker.feed_id.as_ref()], bump = breaker.bump)]
+    pub breaker: Account<'info, Breaker>,
 }

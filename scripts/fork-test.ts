@@ -113,7 +113,7 @@ async function main() {
   await guarded("3. Spoofed oracle (AAPL account for NVDA feed): reverts", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 100_000_000n, pyth(100), pythAapl, 6007);
   await guarded("4. Fake oracle account (USDC mint as price): reverts", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 100_000_000n, pyth(100), USDC, 6006);
   await guarded("5. Sell 1 NVDAx back to USDC, Pyth guard 1%: passes", NVDAX, TOKEN_2022_PROGRAM, USDC, TOKEN_PROGRAM, 100_000_000n,
-    { side: "sell", reference: { kind: "pyth", feedId: NVDA_FEED, maxAgeSecs: 600, maxConfBps: 200 }, toleranceBps: 100 }, pythNvda, "pass");
+    { side: "sell", reference: { kind: "pyth", feedId: NVDA_FEED, maxAgeSecs: 600, maxConfBps: 200 }, toleranceBps: 100 }, pythNvda, "pass", "Whirlpool,Raydium CLMM");
   await guarded("6. Buy $300 OPENAI PreStocks capped at mark +5%: reverts", USDC, TOKEN_PROGRAM, OPENAI, TOKEN_2022_PROGRAM, 300_000_000n,
     { side: "buy", reference: { kind: "limit", priceE6: 1_023_650_000n }, toleranceBps: 500 }, undefined, 6000);
   await guarded("7. Buy $300 SPACEX PreStocks capped at mark: passes (5x multiplier applied)", USDC, TOKEN_PROGRAM, SPACEX, TOKEN_2022_PROGRAM, 300_000_000n,
