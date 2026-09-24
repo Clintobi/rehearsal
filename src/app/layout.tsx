@@ -7,6 +7,7 @@ const sans = Inter_Tight({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://rehearsal-stocklana.vercel.app"),
   title: "Rehearsal: check the price before you buy a tokenized stock",
   description: "Compare your real Jupiter fill for xStocks and PreStocks against Pyth and the issuer mark, on Solana, before you sign.",
 };

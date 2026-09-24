@@ -47,7 +47,7 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/assets").then((r) => r.json()).then((a: AssetOpt[]) => {
       setAssets(a);
-      const q = new URLSearchParams(location.search).get("t");
+      const q = new URLSearchParams(location.search).get("t") ?? location.pathname.match(/^\/rehearse\/([^/]+)/)?.[1];
       setMint((a.find((x) => x.symbol.toLowerCase() === q?.toLowerCase()) ?? a.find((x) => x.symbol === "OPENAI") ?? a[0]).mint);
     });
     const load = () => fetch("/api/board").then((r) => r.json()).then(setBoard).catch(() => {});
