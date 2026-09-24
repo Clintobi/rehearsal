@@ -1,4 +1,12 @@
 program TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE on devnet, payer 2TL4offmc2uDbuscFYjRZjHbea1ixTHXiAjbT42qbV8j
-PASS  open_guard with no close_guard reverts: open_guard without a matching close_guard  https://explorer.solana.com/tx/2tchHtcnCeumy8BwMd1iAMHUFJmjQbjp7DcFimedVw2cKirrDDpYp4iDoEH1qwxcEGnP2ZYjAyBm4Lqf1YykfZPo?cluster=devnet
-PASS  open → close with no swap in between reverts: Swap spent nothing  https://explorer.solana.com/tx/2cWQMiDHNRFfxspAtXC8wfeDndaB5yXrDYyb6dsZTdRU2gh3dQQYSmho9VyyiY3718d9Komhio4yU2zBHjvopMe4?cluster=devnet
-PASS  tolerance above 50% is rejected: Tolerance out of range  https://explorer.solana.com/tx/3GnEXkWBNZBkGthAihCFhfvXRY1cA9qurAnqEK44MGkL7z65hrnEPtGxKArDrzLEDxQdr9K7tSd51F4Sj5pMR3V8?cluster=devnet
+PASS  open_guard with no close_guard reverts: open_guard without a matching close_guard  https://explorer.solana.com/tx/49qPPU33JpvnVz4jCwcYg23UC2MUi6afKxCLuTbbBuQT4zaNPRZNpAgCtKKTjA3L2YGmCSFcFrHv7N3HXyUfzFJK?cluster=devnet
+PASS  open → close with no swap in between reverts: Swap spent nothing  https://explorer.solana.com/tx/5ouTZ2HCE9ePXurWqT6vHLW6jEuLq9uGcRR6yT8rb9aTfrvAZ3Q2C4rzyNdG39KuNXo7J7v8zaZVnwQGSY89jJku?cluster=devnet
+PASS  tolerance above 50% is rejected: Tolerance out of range  https://explorer.solana.com/tx/32qUng7QhRv7TxYSPrbvAM8mMqVY7SopbTdgjAaAaEsrny8P6idbVkpnKXkD5rwNCNjR9k1bXTgX1rdrULNRnWEV?cluster=devnet
+PASS  init SOL/USD breaker: ok  https://explorer.solana.com/tx/5TdU3CnWiuUCikVj86JXU4DB5uKFfXF1Wxt1eX84TE6NmTeGgnCogg6zQJAzpvUVkA28NNNMXjympDxEDqhT8kFN?cluster=devnet
+PASS  crank the SOL/USD breaker from the live devnet Pyth account: ok  https://explorer.solana.com/tx/2ckxJhmauVLMZYsPUH3J9jsXCES98q9DZMrMK7W4Z2JxUwQJk9oso5PgR2pgoaRUgVN1nmXBZeTFd16ftVkPddop?cluster=devnet
+      breaker: state=normal reference=$117.28 band=500bps
+PASS  check_breaker passes while Normal: ok  https://explorer.solana.com/tx/Nc5vbgfQfDoirPQCDbMYcYpBGfM9dTu5b9EAnk8HpKq9HCwo3wUGjuprar9RDzCEcF8RtA5Qs1pNvx6aKTqgxue?cluster=devnet
+PASS  post an exchange halt: ok  https://explorer.solana.com/tx/5CCo9KcFD5xLyYTujYY3mmTfwmxaB629Au7o3jCWgsNQCVh4Q8WBFNR1jANYr52FK88meo2XCqXFszJjbTHy8yEQ?cluster=devnet
+PASS  check_breaker fails while halted: The primary exchange has halted this stock  https://explorer.solana.com/tx/383JLrwFNo2iG69bXovMyf52D6McoNWtgXidNVNrebaR2jjMzpDzjUJpPKkuNCewpw27YMfLvxLQqCiNiipaaQsT?cluster=devnet
+PASS  lift the halt: ok  https://explorer.solana.com/tx/665EXhdSzY4EZxoAQcgM2urxxtmrh4R5VpD3KpMDRYHq7CqFYq2hD7DE4Fx5tYfL7RhDyFZbpAMSkXktt8QUaGR8?cluster=devnet
+PASS  check_breaker passes again: ok  https://explorer.solana.com/tx/2KPLKmmugrRBfGCnLgL7WX3MYPFZQn2fzwn5TqDY12nG1AEWuWvSnpRhgaCoYCVJxbrDn9957DpVZJyrQFQMpqQR?cluster=devnet

@@ -2,7 +2,7 @@
 // full swap path is tested on the mainnet fork (fork-test.ts); here we hit the guard's own rules.
 import { ComputeBudgetProgram, Connection, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { readFileSync } from "fs";
-import { ata, closeGuardIx, GUARD_ERRORS, GUARD_PROGRAM_ID, openGuardIx, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
+import { ata, breakerPda, checkBreakerIx, closeGuardIx, crankBreakerIx, decodeBreaker, GUARD_ERRORS, GUARD_PROGRAM_ID, initBreakerIx, openGuardIx, setHaltIx, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
 
 const conn = new Connection(process.env.DEVNET_RPC ?? "https://api.devnet.solana.com", "confirmed");
 const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync("onchain/keys/deployer.json", "utf8"))));
@@ -19,6 +19,7 @@ const createAtaIdempotent = (owner: PublicKey, mint: PublicKey, prog: PublicKey)
 });
 
 async function run(name: string, ixs: TransactionInstruction[], expect: number) {
+  // expect: an error code, or 0 for success
   const { blockhash } = await conn.getLatestBlockhash();
   const tx = new VersionedTransaction(new TransactionMessage({ payerKey: payer.publicKey, recentBlockhash: blockhash, instructions: [ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }), ...ixs] }).compileToV0Message());
   tx.sign([payer]);
@@ -28,7 +29,8 @@ async function run(name: string, ixs: TransactionInstruction[], expect: number) 
   for (let i = 0; i < 20 && !t; i++) { t = await conn.getTransaction(sig, { maxSupportedTransactionVersion: 0, commitment: "confirmed" }).catch(() => null); if (!t) await new Promise((r) => setTimeout(r, 1000)); }
 
   const code = Number(JSON.stringify(t?.meta?.err ?? "").match(/"Custom":(\d+)/)?.[1] ?? -1);
-  console.log(`${code === expect ? "PASS" : "FAIL"}  ${name}: ${GUARD_ERRORS[code] ?? JSON.stringify(t?.meta?.err)}  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
+  const ok = expect === 0 ? !t?.meta?.err : code === expect;
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}: ${t?.meta?.err ? GUARD_ERRORS[code] ?? JSON.stringify(t?.meta?.err) : "ok"}  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
 }
 
 (async () => {
@@ -40,4 +42,17 @@ async function run(name: string, ixs: TransactionInstruction[], expect: number) 
   await run("open_guard with no close_guard reverts", [setup, openGuardIx(legs, policy)], 6001);
   await run("open → close with no swap in between reverts", [setup, openGuardIx(legs, policy), closeGuardIx(legs)], 6012);
   await run("tolerance above 50% is rejected", [setup, openGuardIx(legs, { ...policy, toleranceBps: 6000 }), closeGuardIx(legs)], 6002);
+
+  // Circuit breaker on the one Pyth feed devnet carries (SOL/USD, shard 0).
+  const SOL_FEED = "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d";
+  const SOL_PRICE = new PublicKey("7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE");
+  if (!(await conn.getAccountInfo(breakerPda(SOL_FEED)))) await run("init SOL/USD breaker", [initBreakerIx(payer.publicKey, SOL_FEED, 500, 15, 300, 600)], 0);
+  await run("crank the SOL/USD breaker from the live devnet Pyth account", [crankBreakerIx(SOL_FEED, SOL_PRICE)], 0);
+  const b = decodeBreaker((await conn.getAccountInfo(breakerPda(SOL_FEED)))!.data as Buffer);
+  console.log(`      breaker: state=${b.state} reference=$${(Number(b.referenceE6) / 1e6).toFixed(2)} band=${b.bandBps}bps`);
+  await run("check_breaker passes while Normal", [crankBreakerIx(SOL_FEED, SOL_PRICE), checkBreakerIx(SOL_FEED)], 0);
+  await run("post an exchange halt", [setHaltIx(payer.publicKey, SOL_FEED, true, "T1")], 0);
+  await run("check_breaker fails while halted", [crankBreakerIx(SOL_FEED, SOL_PRICE), checkBreakerIx(SOL_FEED)], 6017);
+  await run("lift the halt", [setHaltIx(payer.publicKey, SOL_FEED, false)], 0);
+  await run("check_breaker passes again", [crankBreakerIx(SOL_FEED, SOL_PRICE), checkBreakerIx(SOL_FEED)], 0);
 })();
