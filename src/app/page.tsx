@@ -80,7 +80,10 @@ export default function Home() {
           <span className="text-[17px] font-semibold tracking-tight">Rehearsal</span>
           <span className="hidden rounded-full border border-line px-2 py-0.5 text-xs text-mute sm:inline">Solana mainnet</span>
         </div>
-        <WalletMultiButton />
+        <div className="flex items-center gap-4">
+          <a href="/report" className="hidden text-sm font-medium text-mute hover:text-ink sm:inline">Execution report</a>
+          <WalletMultiButton />
+        </div>
       </header>
 
       <section className="pt-8 pb-10 sm:pt-14">
