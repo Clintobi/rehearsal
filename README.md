@@ -13,6 +13,35 @@ Built for STOCKLANA (Solana Foundation, Sept 2026): Main track, PreStocks bounty
 
 Live app: https://rehearsal-stocklana.vercel.app
 
+## Open execution report: a Rule 605 for tokenized stocks
+
+On 17 Sep 2026 the SEC exempted on-chain AMM venues for tokenized stocks from Rules 605, 610, 611, 612 and 613, and imposed no best-execution standard (Rel. 34-106402). Rule 605 is the rule that makes US brokers publish how well they fill customer orders. Rehearsal publishes the equivalent for Solana, in the open: https://rehearsal-stocklana.vercel.app/report
+
+`scripts/recorder.ts` works in five loops:
+- Every 3s it records the Pyth equity price accounts.
+- Every 30s it randomly samples successful transactions on every xStock and PreStocks mint, then parses each into a fill: trader, side, fill price net of Token-2022 fees and multipliers, venue and router.
+- It grades each fill against the reference at that second: Pyth, the xStocks issuer reference, or the PreStocks mark.
+- It computes 5-minute markouts.
+- Every 10 minutes it publishes a report (by venue, router, size, session and token, plus the worst fills) to a public gist that the page reads live.
+
+The method, sampling and exclusions are on the page. Pyth is a reference price, not the legal NBBO.
+
+## Circuit breaker with halt-sync
+
+The same program now has a per-feed `Breaker` modelled on the US Limit Up-Limit Down plan:
+- It keeps a rolling ~5-minute Pyth reference and a band around it (5% for Tier 1).
+- It enters a limit state when the price leaves the band, pauses for 5 minutes if it stays out 15s, then reopens at the current price.
+- `set_halt` mirrors primary-exchange halts, which the SEC exemption requires. `scripts/halt-relayer.ts` posts them from Nasdaq Trader's official halt feed.
+- `close_guard` refuses trades while the breaker is limited, paused, halted or stale.
+- `check_breaker` lets any venue enforce the same rule with one CPI.
+
+Tests:
+- 13/13 on a clean Surfpool mainnet fork with the real NVDA Pyth account and real Jupiter routes (`scripts/fork-breaker-test.ts`, output in `docs/fork-breaker-test-output.txt`). Covered: an 8% shock → limit → pause → reopen, halt → blocked, a stranger can't lift a halt, stale → blocked.
+- 10/10 live on devnet (`docs/devnet-smoke-output.txt`), cranking devnet's real Pyth SOL/USD account.
+- 4 state-machine unit tests.
+
+Breakers for the 11 Pyth-referenced stocks are live on devnet.
+
 ## Blink: the check where traders already are
 
 Any token has a Solana Action at `/api/actions/rehearse/<SYMBOL>`, and `/rehearse/<SYMBOL>` is a shareable link that `actions.json` maps to it. The card image is rendered live (`/api/actions/card/<SYMBOL>`) with the current gap vs fair value. The buttons build a buy for the clicking wallet, re-quoted at click time, with the transfer fee counted in slippage. When the token looks bad, the buttons say "Buy anyway". When the guard is live on the cluster, the Blink's buy runs inside it.

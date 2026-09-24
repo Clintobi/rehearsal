@@ -60,6 +60,42 @@ function Table({ title, note, rows, keyLabel }: { title: string; note?: string; 
   );
 }
 
+type BRow = { symbol: string; ticker: string; nasdaq: { halted: boolean; reason: string | null; at: string | null; resumed: boolean | null }; breaker: { address: string; state: string; bandBps: number; exchangeHalted: boolean; haltReason: string; trips: number } | null };
+
+function HaltSync() {
+  const [d, setD] = useState<{ cluster: string; feedItems: number; rows: BRow[] } | null>(null);
+  useEffect(() => { fetch("/api/breakers").then((x) => x.json()).then(setD).catch(() => {}); }, []);
+  if (!d) return null;
+  return (
+    <section className="mt-10">
+      <h2 className="text-xl font-semibold tracking-tight">Halt-sync and circuit breakers</h2>
+      <p className="mt-1 max-w-3xl text-sm text-mute">
+        The SEC exemption requires on-chain venues to stop trading a tokenized stock when its primary exchange halts it. A relayer mirrors Nasdaq&apos;s official halt feed
+        ({d.feedItems} entries today) onto each stock&apos;s on-chain circuit breaker. The breaker also trips on its own, LULD-style, when the Pyth price leaves a 5% band around its
+        rolling 5-minute reference for 15 seconds. The Rehearsal Guard refuses trades while it&apos;s tripped. Breakers are on {d.cluster} until the mainnet deploy.
+      </p>
+      <div className="mt-3 overflow-x-auto rounded-2xl border border-line bg-card">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-mute">
+            <tr><th className="px-4 py-3 font-medium">Stock</th><th className="px-4 py-3 font-medium">Nasdaq halt feed</th><th className="px-4 py-3 font-medium">On-chain breaker</th><th className="px-4 py-3 text-right font-medium">Band</th><th className="px-4 py-3 text-right font-medium">Trips</th></tr>
+          </thead>
+          <tbody>
+            {d.rows.map((r) => (
+              <tr key={r.symbol} className="border-b border-line/70 last:border-0">
+                <td className="px-4 py-2.5 font-medium">{r.symbol} <span className="text-mute">{r.ticker}</span></td>
+                <td className={`px-4 py-2.5 ${r.nasdaq.halted ? "font-semibold text-bad" : "text-good"}`}>{r.nasdaq.halted ? `Halted (${r.nasdaq.reason}) since ${r.nasdaq.at}` : "Trading"}</td>
+                <td className="px-4 py-2.5">{r.breaker ? <a className="underline decoration-line underline-offset-2" href={`https://explorer.solana.com/address/${r.breaker.address}?cluster=${d.cluster}`} target="_blank" rel="noreferrer">{r.breaker.exchangeHalted ? `halted (${r.breaker.haltReason})` : r.breaker.state}</a> : "–"}</td>
+                <td className="num px-4 py-2.5 text-right">{r.breaker ? `${r.breaker.bandBps / 100}%` : "–"}</td>
+                <td className="num px-4 py-2.5 text-right">{r.breaker?.trips ?? "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export default function ReportPage() {
   const [r, setR] = useState<Report | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -127,6 +163,8 @@ export default function ReportPage() {
           <Table title="By market session" keyLabel="Asset : session" rows={r.by_session} note="Off-hours the reference is the latest overnight or closing print, so gaps there partly reflect real news the reference hasn't priced yet." />
           <Table title="By token" keyLabel="Token" rows={r.by_token} />
           <Table title="By reference" keyLabel="Reference" rows={r.by_reference} note="pyth = Pyth equity price account on Solana. xstocks-ref = the issuer's reference price, a weaker benchmark. mark = PreStocks mark. unparsed = multi-leg transactions we don't grade." />
+
+          <HaltSync />
 
           {r.worst_fills.length > 0 && (
             <section className="mt-10">

@@ -348,6 +348,14 @@ function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
   const ref = r.reference;
   const buy = r.side === "buy";
 
+  const [brk, setBrk] = useState<{ cluster: string; nasdaq: { halted: boolean; reason: string | null }; breaker: { address: string; state: string; bandBps: number; exchangeHalted: boolean } | null } | null>(null);
+  useEffect(() => {
+    if (r.asset.kind !== "xstock") return;
+    fetch("/api/breakers").then((x) => x.json()).then((d) => {
+      const row = d.rows?.find((x: { symbol: string }) => x.symbol === r.asset.symbol);
+      if (row) setBrk({ cluster: d.cluster, ...row });
+    }).catch(() => {});
+  }, [r.asset.symbol, r.asset.kind]);
   const defaultTol = r.asset.kind === "prestock" ? 500 : 100;
   const [guardOn, setGuardOn] = useState(GUARD_LIVE);
   const [tol, setTol] = useState(defaultTol);
@@ -417,6 +425,13 @@ function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
         )}
         {ref && !ref.account && <div>Reference: <span className="text-ink">{ref.detail}</span></div>}
         {r.uiMultiplier !== 1 && <div>Token-2022 multiplier {r.uiMultiplier.toFixed(4)}× applied (splits and dividends)</div>}
+        {brk && (
+          <div>
+            Circuit breaker: Nasdaq{" "}
+            <span className={brk.nasdaq.halted ? "font-semibold text-bad" : "text-ink"}>{brk.nasdaq.halted ? `HALTED (${brk.nasdaq.reason})` : "trading"}</span>
+            {brk.breaker && <> · on-chain breaker <a className="text-ink underline decoration-line underline-offset-2" href={`https://explorer.solana.com/address/${brk.breaker.address}?cluster=${brk.cluster}`} target="_blank" rel="noreferrer">{brk.breaker.exchangeHalted ? "halted" : brk.breaker.state}</a> ({brk.breaker.bandBps / 100}% band, {brk.cluster})</>}
+          </div>
+        )}
         {r.transferFeeBps > 0 && <div>Token-2022 transfer fee {(r.transferFeeBps / 100).toFixed(2)}% withheld on every transfer, included in the fill above</div>}
       </div>
 
