@@ -32,7 +32,7 @@ Try it: https://dial.to/?action=solana-action:https://rehearsal-stocklana.vercel
 
 ## Rehearsal Guard program
 
-`onchain/programs/rehearsal_guard` (Anchor 0.32). Program id `TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE`.
+`onchain/programs/rehearsal_guard` (Anchor 0.32). Program id `TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE`, **deployed on devnet** ([explorer](https://explorer.solana.com/address/TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE?cluster=devnet)). Devnet has no Jupiter or xStocks, so `scripts/devnet-smoke.ts` checks the deployed program's own rules there (a guard with no close, a close with no swap, an out-of-range tolerance: 3/3, links in `docs/devnet-smoke-output.txt`). The full swap path is tested on a mainnet fork, below. Mainnet deploy is the same binary.
 
 **`open_guard(policy)`**
 - Snapshots the wallet's input and output token balances into a transaction-scoped PDA. The output account may not exist yet, since Jupiter creates it inside the swap.

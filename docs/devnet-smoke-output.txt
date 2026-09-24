@@ -1,0 +1,14 @@
+program TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE on devnet, payer 2TL4offmc2uDbuscFYjRZjHbea1ixTHXiAjbT42qbV8j
+PASS  open_guard with no close_guard reverts: open_guard without a matching close_guard  https://explorer.solana.com/tx/2zLTnJHEuQgxmut94q1GMChS1EJLXm3gGMjEBUryN4dAw4K7z6ymQ3Mjxkm9BRT9NJdqphruiVJLFXKSkAdzJ9VJ?cluster=devnet
+node:internal/process/promises:322
+      new UnhandledPromiseRejection(reason);
+      ^
+
+UnhandledPromiseRejection: This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). The promise rejected with the reason "#<Object>".
+    at throwUnhandledRejectionsMode (node:internal/process/promises:322:7)
+    at processPromiseRejections (node:internal/process/promises:405:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:106:37) {
+  code: 'ERR_UNHANDLED_REJECTION'
+}
+
+Node.js v26.7.0
