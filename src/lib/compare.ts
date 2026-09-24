@@ -79,7 +79,7 @@ export async function compare(slug: string, usd: number): Promise<Company | { er
     let impliedValuation: number | null = null;
     let unitsBasis = "";
     if (a.kind === "xstock" && shares) { impliedValuation = fill * shares; unitsBasis = `${(shares / 1e9).toFixed(2)}B shares outstanding`; }
-    else if (a.mark) { const units = a.mark.valuation / a.mark.price; impliedValuation = fill * units; unitsBasis = `${a.issuer} mark: $${fmtV(a.mark.valuation)} ÷ $${a.mark.price.toFixed(2)} = ${(units / 1e6).toFixed(1)}M token-equivalents`; }
+    else if (a.mark) { const units = a.mark.valuation / a.mark.price; impliedValuation = fill * units; unitsBasis = `${a.issuer} mark: $${fmtV(a.mark.valuation)} ÷ $${a.mark.price.toFixed(2)} = ${units >= 1e9 ? `${(units / 1e9).toFixed(2)}B` : `${(units / 1e6).toFixed(1)}M`} token-equivalents`; }
     routes.push({ ...base, fill, tokens, roundTripPct, impact: Number(q.priceImpactPct) * 100, impliedValuation, unitsBasis, quote: q });
   }
 

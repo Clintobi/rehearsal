@@ -158,6 +158,8 @@ export default function Home() {
         </section>
       </div>
 
+      <ListedVsPre />
+
       <WalletCheck />
 
       {/* Board */}
@@ -213,6 +215,47 @@ export default function Home() {
         Quotes from Jupiter · reference prices read from Pyth price accounts on Solana and the PreStocks API · not investment advice.
       </footer>
     </main>
+  );
+}
+
+type CRoute = { symbol: string; issuer: string; kind: string; mint: string; icon?: string; fill: number | null; roundTripPct: number | null; impliedValuation: number | null; unitsBasis: string; structure: string; exitFeeBps: number; multiplier: number };
+type CData = { name: string; usd: number; listed: { price: number; mcap: number; source: string } | null; routes: CRoute[]; best: string | null; notes: string[] };
+
+// SpaceX is listed now, and PreStocks SPACEX still trades. Same company, two ways in.
+function ListedVsPre() {
+  const [d, setD] = useState<CData | null>(null);
+  useEffect(() => { fetch("/api/compare?company=spacex&usd=1000").then((r) => r.json()).then((j) => !j.error && setD(j)).catch(() => {}); }, []);
+  if (!d || d.routes.length < 2) return null;
+  const listed = d.routes.find((r) => r.kind === "xstock");
+  const pre = d.routes.find((r) => r.kind === "prestock");
+  const disc = listed?.impliedValuation && pre?.impliedValuation ? (1 - pre.impliedValuation / listed.impliedValuation) * 100 : null;
+  return (
+    <section className="mt-14">
+      <h2 className="text-2xl font-semibold tracking-tight">{d.name} listed. The pre-IPO token still trades.</h2>
+      <p className="mt-1 max-w-3xl text-sm text-mute">
+        Two ways to own the same company on Solana, compared on the valuation your {usdFmt(d.usd, 0)} actually buys at after fees and the Token-2022 multiplier.
+        {disc != null && <> Right now the PreStocks token prices {d.name} <b className="text-ink">{Math.abs(disc).toFixed(1)}% {disc > 0 ? "below" : "above"}</b> the listed share.</>}
+      </p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {[listed, pre].filter(Boolean).map((r) => (
+          <div key={r!.mint} className="rounded-2xl border border-line bg-card p-5">
+            <div className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {r!.icon && <img src={r!.icon} alt="" className="h-8 w-8 rounded-full bg-paper object-cover" />}
+              <div><div className="font-semibold">{r!.symbol} <span className="font-normal text-mute">· {r!.issuer}</span></div>
+                <div className="text-xs text-mute">{r!.structure}</div></div>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+              <div><div className="text-xs text-mute">Your fill</div><div className="num font-semibold">{r!.fill ? usdFmt(r!.fill) : "–"}</div></div>
+              <div><div className="text-xs text-mute">Implied valuation</div><div className="num font-semibold">{r!.impliedValuation ? bil(r!.impliedValuation) : "–"}</div></div>
+              <div><div className="text-xs text-mute">Round trip</div><div className="num font-semibold">{r!.roundTripPct != null ? `−${r!.roundTripPct.toFixed(2)}%` : "–"}</div></div>
+            </div>
+            <div className="mt-3 text-xs text-mute">{r!.unitsBasis}{r!.exitFeeBps ? ` · ${(r!.exitFeeBps / 100).toFixed(0)}% transfer fee` : ""}{r!.multiplier !== 1 ? ` · ${r!.multiplier}× multiplier` : ""}</div>
+          </div>
+        ))}
+      </div>
+      {d.notes.map((n) => <p key={n} className="mt-3 max-w-3xl text-xs text-mute">{n}</p>)}
+    </section>
   );
 }
 
