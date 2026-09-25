@@ -1,0 +1,20 @@
+# Rehearsal Gate on a Surfpool mainnet fork (real Meteora DBC program, real SPYx token badge), 2026-09-25T12:22:56Z
+
+PASS  1. circuit breaker for SPY exists
+      breaker CJtvWNRZYHgENXH7Uod7BftcAER1vmx6z3ZbkLQ1AHc9 
+PASS  2. DBC config quoted in SPYx with the Rehearsal Gate hook
+      config BqgZxQw25aXo16HTxKKdSReA59hipFz9tHLWJPPHJcAy, badge D2THzeQLHaDeKBzzmTNuWEWw23WPM8vVhLvUmSPEpNeL
+PASS  3. pool created and bound to the SPY breaker atomically
+      pool HRhwcyvfFcZNtdWYSdb7ANAhqAmYPjcs1EGBudZv4D2N, extra-account-metas F25UARfPvSqbCUVQwex4VPbWe5YrSehNgopW71bvSGmB
+PASS  4. buy on the curve while SPY trades normally: fills
+      tx 5x2ktUxV8qMj3dym… (hook ran: true)
+PASS  5. SPY halted (T1): the same buy reverts in the gate
+      ok=false, failed in 4MtrgDQpbgjpzcAcL5Ftm8E1L37deBnZ5f2Pi6WmpqPE with 6000 (6000 = ExchangeHalted)
+PASS  6. selling during the halt is paused too
+      ok=false, failed in 4MtrgDQpbgjpzcAcL5Ftm8E1L37deBnZ5f2Pi6WmpqPE with 6000
+PASS  7. halt lifted: buys fill again
+      tx 4NMAjt1A5RGokDF9…
+PASS  8. the curve completes and DBC removes the hook for the graduated token
+      swap ok=true; hook program now 11111111111111111111111111111111; quote reserve ? raw SPYx;  
+
+8/8 passed
