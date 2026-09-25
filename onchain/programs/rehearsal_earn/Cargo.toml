@@ -1,0 +1,28 @@
+[package]
+name = "rehearsal_earn"
+version = "0.1.0"
+description = "Weekly covered calls and cash-secured puts on tokenized stocks, settled on the last Pyth price before the 16:00 New York close"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "rehearsal_earn"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
+anchor-spl = { version = "0.32.1", default-features = false, features = ["token", "token_2022"] }
+rehearsal_guard = { path = "../rehearsal_guard", features = ["cpi"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

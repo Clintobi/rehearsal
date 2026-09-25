@@ -10,6 +10,8 @@ const WalletMultiButton = dynamic(() => import("@solana/wallet-adapter-react-ui"
 const NAV = [
   { href: "/app", label: "Trade", icon: <path d="M4 16l5-5 4 4 7-7M14 8h6v6" /> },
   { href: "/app/markets", label: "Markets", icon: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></> },
+  { href: "/app/earn", label: "Earn", icon: <><circle cx="12" cy="12" r="8.5" /><path d="M14.8 9.3c-.5-.9-1.6-1.4-2.8-1.4-1.6 0-2.8.8-2.8 2s1.2 1.7 2.8 2.1c1.6.4 2.8.9 2.8 2.1s-1.2 2-2.8 2c-1.3 0-2.4-.5-2.9-1.4M12 6.4v1.5M12 16.1v1.5" /></> },
+  { href: "/app/weekend", label: "Weekend", icon: <><path d="M12 3v2M12 19v2M4.2 7l1.7 1M18.1 16l1.7 1M3 12h2M19 12h2" /><path d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" /></> },
   { href: "/app/private", label: "Pre-IPO", icon: <><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z" /></> },
   { href: "/app/portfolio", label: "Portfolio", icon: <><rect x="3" y="6" width="18" height="14" rx="3" /><path d="M16 13h2M3 10h18" /></> },
   { href: "/app/orders", label: "Orders", icon: <><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" /></> },
@@ -53,7 +55,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       {/* Mobile tab bar */}
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[var(--z-sticky)] border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
-        <div className="grid grid-cols-6">
+        <div className="grid grid-cols-8">
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
               className={cx("flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",

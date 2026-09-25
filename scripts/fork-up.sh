@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Clean Surfpool mainnet fork with the guard deployed and live Pyth equity accounts loaded.
+# Clean Surfpool mainnet fork with the guard and Earn deployed and live Pyth equity accounts loaded.
 # Usage: MAINNET_RPC=<helius url> scripts/fork-up.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -18,6 +18,13 @@ for attempt in 1 2 3; do
   echo "deploy attempt $attempt failed, retrying"; sleep 2
 done
 solana program show TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE -u $L -k onchain/keys/deployer.json | grep -q "Data Length" || { echo "deploy failed"; exit 1; }
+# Rehearsal Earn, with the deployer as upgrade authority (it lists stocks).
+for attempt in 1 2 3; do
+  if solana program deploy onchain/target/deploy/rehearsal_earn.so --program-id onchain/target/deploy/rehearsal_earn-keypair.json -k onchain/keys/deployer.json -u $L --use-rpc | tail -1; then
+    solana program show FDkUBYhiH45BJd4svgHFw8tjSdrYVabcJhenpo81AsjV -u $L -k onchain/keys/deployer.json >/dev/null 2>&1 && break
+  fi
+  echo "earn deploy attempt $attempt failed, retrying"; sleep 2
+done
 # Surfpool freezes the first copy it fetches; load the live Pyth equity accounts now.
 node -e '
 const {Connection,PublicKey}=require("@solana/web3.js");const x=require("./src/data/xstocks.json");

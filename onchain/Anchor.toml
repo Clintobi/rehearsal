@@ -7,9 +7,11 @@ skip-lint = false
 
 [programs.devnet]
 rehearsal_guard = "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE"
+rehearsal_earn = "FDkUBYhiH45BJd4svgHFw8tjSdrYVabcJhenpo81AsjV"
 
 [programs.localnet]
 rehearsal_guard = "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE"
+rehearsal_earn = "FDkUBYhiH45BJd4svgHFw8tjSdrYVabcJhenpo81AsjV"
 
 [provider]
 cluster = "devnet"
