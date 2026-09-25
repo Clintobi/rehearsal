@@ -25,6 +25,13 @@ cargo run --release                 # 2) Groth16 proof (Docker must be running),
 
 Outputs in `zk/out/`: `groth16_proof.hex`, `public_values.hex`, `vkey_hash.txt`, `proof.bin`.
 
-If the `sp1-sdk = "5"` / `sp1-zkvm = "5"` versions don't resolve, run `cargo prove new tmp --bare` and copy that template's version numbers into `program/Cargo.toml` and `script/Cargo.toml`. The code uses only stable SP1 APIs (`include_elf!`, `ProverClient::from_env`, `SP1Stdin::write_vec`, `.groth16()`, `vk.bytes32()`).
+Built and checked on SP1 v6.8.1: `--execute` runs in 6.54M instructions and prints exactly the public values above.
+
+One command does everything (installs Rust + SP1, checks, proves, writes one result file):
+```bash
+curl -fsSL https://raw.githubusercontent.com/Clintobi/rehearsal/main/zk/run-proof.sh | bash
+```
+
+On the Succinct Prover Network instead of a local machine: `SP1_PROVER=network NETWORK_PRIVATE_KEY=<requester key> cargo run --release` (requester account funded with PROVE).
 
 Send back the three text files in `zk/out/`. The Solana side verifies the Groth16 proof with `sp1-solana`.

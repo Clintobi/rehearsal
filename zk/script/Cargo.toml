@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sp1-sdk = "5"
+# blocking: synchronous API; network: lets SP1_PROVER=network use the Succinct Prover Network
+sp1-sdk = { version = "6", features = ["blocking", "network"] }
 hex = "0.4"
 
 [build-dependencies]
-sp1-build = "5"
+sp1-build = "6"
