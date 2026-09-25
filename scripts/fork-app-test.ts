@@ -1,10 +1,11 @@
 // Drives the app's own API the way the browser does (rehearse → guarded-swap → sign → send),
 // against a Surfpool mainnet fork. Run the dev server with GUARD_RPC pointing at the fork.
+import { forkConnection } from "./fork-conn";
 import { Connection, Keypair, LAMPORTS_PER_SOL, VersionedTransaction } from "@solana/web3.js";
 
 const APP = process.env.APP ?? "http://127.0.0.1:3311";
 const FORK = process.env.FORK_RPC ?? "http://127.0.0.1:8899";
-const conn = new Connection(FORK, "confirmed");
+const conn = forkConnection(FORK);
 const user = Keypair.generate();
 
 async function rpc(method: string, params: unknown[]) {

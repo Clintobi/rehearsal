@@ -42,3 +42,8 @@ next-env.d.ts
 
 # recorder
 data/recorder.db*
+
+# zk build outputs
+zk/target/
+zk/program/target/
+zk/script/target/

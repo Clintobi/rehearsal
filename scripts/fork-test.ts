@@ -3,6 +3,7 @@
 //   surfpool start -u <mainnet rpc> --no-tui --no-deploy --no-studio
 //   solana program deploy ... -u localhost
 //   npx tsx scripts/fork-test.ts
+import { forkConnection } from "./fork-conn";
 import { createHash } from "crypto";
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, TransactionMessage, VersionedTransaction, ComputeBudgetProgram } from "@solana/web3.js";
 import { buildGuardedSwap, closeGuardIx, openGuardIx, GUARD_ERRORS, GUARD_PROGRAM_ID, TOKEN_2022_PROGRAM, TOKEN_PROGRAM, pda, type GuardLegs, type Policy } from "../src/lib/guard";
@@ -17,7 +18,7 @@ const SPACEX = new PublicKey("PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh");
 const NVDA_FEED = "b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593";
 const AAPL_FEED = "49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688";
 
-const conn = new Connection(LOCAL, "confirmed");
+const conn = forkConnection(LOCAL);
 const user = Keypair.generate();
 const results: { name: string; pass: boolean; detail: string }[] = [];
 

@@ -1,0 +1,11 @@
+[package]
+name = "rehearsal-report-script"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sp1-sdk = "5"
+hex = "0.4"
+
+[build-dependencies]
+sp1-build = "5"

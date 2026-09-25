@@ -1,8 +1,9 @@
 // Clicks the Blink the way a wallet does (GET card → POST {account} → sign → send), on the fork.
+import { forkConnection } from "./fork-conn";
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from "@solana/web3.js";
 const APP = process.env.APP ?? "http://127.0.0.1:3311";
 const FORK = process.env.FORK_RPC ?? "http://127.0.0.1:8899";
-const conn = new Connection(FORK, "confirmed");
+const conn = forkConnection(FORK);
 const user = Keypair.generate();
 const rpc = async (method: string, params: unknown[]) => (await (await fetch(FORK, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json()).result;
 

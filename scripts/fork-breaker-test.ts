@@ -1,13 +1,14 @@
 // Circuit breaker + halt-sync, end to end on a Surfpool mainnet fork with the real NVDA
 // Pyth account, the real NVDAx mint and real Jupiter routes. The price shock is simulated
 // by rewriting the Pyth account on the fork; time is advanced with surfnet_timeTravel.
+import { forkConnection } from "./fork-conn";
 import { ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { readFileSync } from "fs";
 import { breakerPda, buildGuardedSwap, checkBreakerIx, crankBreakerIx, decodeBreaker, GUARD_ERRORS, initBreakerIx, setHaltIx, TOKEN_2022_PROGRAM, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
 import { feedAccount } from "../src/lib/pyth";
 
 const FORK = process.env.FORK_RPC ?? "http://127.0.0.1:8899";
-const conn = new Connection(FORK, "confirmed");
+const conn = forkConnection(FORK);
 const mainnet = new Connection(process.env.MAINNET_RPC!, "confirmed");
 const authority = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync("onchain/keys/deployer.json", "utf8"))));
 const user = Keypair.generate();
