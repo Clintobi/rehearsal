@@ -276,8 +276,9 @@ const COMMIT_RPC = process.env.COMMIT_RPC; // e.g. a devnet RPC
 const COMMIT_KEY = process.env.COMMIT_KEY ?? "onchain/keys/deployer.json";
 const MEMO = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
-function exportFills() {
-  const rows = db.prepare("SELECT sig, symbol, kind, block_time, side, quote_usd, fill_price, ref_price, ref_source FROM fills WHERE gap_bps IS NOT NULL AND quote_usd >= ? ORDER BY block_time, sig").all(MIN_GRADE_USD) as { sig: string; symbol: string; kind: string; block_time: number; side: string; quote_usd: number; fill_price: number; ref_price: number; ref_source: string }[];
+function exportFills(exclude: Set<string> = new Set()) {
+  const rows = (db.prepare("SELECT sig, symbol, kind, block_time, side, quote_usd, fill_price, ref_price, ref_source FROM fills WHERE gap_bps IS NOT NULL AND quote_usd >= ? ORDER BY block_time, sig").all(MIN_GRADE_USD) as { sig: string; symbol: string; kind: string; block_time: number; side: string; quote_usd: number; fill_price: number; ref_price: number; ref_source: string }[])
+    .filter((r) => !exclude.has(r.sig));
   const out = rows.map((r) => ({ sig: r.sig, symbol: r.symbol, kind: r.kind, t: r.block_time, side: r.side, usd_e6: Math.round(r.quote_usd * 1e6), fill_e6: Math.round(r.fill_price * 1e6), ref_e6: Math.round(r.ref_price * 1e6), ref: r.ref_source }));
   const bytes = Buffer.from(JSON.stringify(out));
   writeFileSync("data/fills.json", bytes);
@@ -300,11 +301,30 @@ async function commitOnChain(memo: string) {
   return sig;
 }
 
+// Wash-trading filter, after the DN Institute study of Solana xStock pools: a wallet that buys and
+// sells the same token at least 5 times each and ends within 10% of flat is round-tripping, not
+// investing. Its fills are excluded from every statistic and from the published dataset.
+const BOT_MIN_EACH = 5, BOT_FLAT = 0.1;
+function roundTrippers(rows: { trader: string | null; mint: string; side: string; quote_usd: number }[]) {
+  const m = new Map<string, { b: number; s: number; bu: number; su: number }>();
+  for (const r of rows) {
+    if (!r.trader) continue;
+    const k = `${r.trader}|${r.mint}`, x = m.get(k) ?? { b: 0, s: 0, bu: 0, su: 0 };
+    if (r.side === "buy") { x.b++; x.bu += r.quote_usd; } else { x.s++; x.su += r.quote_usd; }
+    m.set(k, x);
+  }
+  return new Set([...m.entries()].filter(([, v]) => v.b >= BOT_MIN_EACH && v.s >= BOT_MIN_EACH && Math.abs(v.bu - v.su) <= BOT_FLAT * Math.max(v.bu, v.su)).map(([k]) => k));
+}
+
 async function report() {
-  const all = db.prepare("SELECT * FROM fills").all() as Record<string, never>[] as unknown as {
-    sig: string; symbol: string; kind: string; side: string; venue: string; router: string; session: string; quote_usd: number;
+  const every = db.prepare("SELECT * FROM fills").all() as Record<string, never>[] as unknown as {
+    sig: string; symbol: string; mint: string; trader: string | null; kind: string; side: string; venue: string; router: string; session: string; quote_usd: number;
     fill_price: number; ref_price: number | null; ref_source: string | null; gap_bps: number | null; markout_300: number | null; block_time: number;
   }[];
+  const bots = roundTrippers(every);
+  const isBot = (r: (typeof every)[number]) => !!r.trader && bots.has(`${r.trader}|${r.mint}`);
+  const all = every.filter((r) => !isBot(r));
+  const botFills = every.filter(isBot);
   const group = (key: (r: (typeof all)[number]) => string, min = 1) => {
     const m = new Map<string, typeof all>();
     for (const r of all) m.set(key(r), [...(m.get(key(r)) ?? []), r]);
@@ -322,8 +342,9 @@ async function report() {
     exclusions: `Fills under $${10} (fees and rounding swamp the price), SOL-paid fills under $100 (rent refunds and tips distort them) and multi-leg transactions more than 30% from the reference are recorded but not graded. Groups with fewer than ${10} graded fills are shown as too small to read.`,
       gap: "Positive = worse than the reference for the trader (buy: fill/ref − 1, sell: 1 − fill/ref). Fill price is net of Token-2022 transfer fees and uses the scaled-UI multiplier.",
       markout: "Reference price 5 minutes after the fill vs the fill price, from the trader's side.",
+      bots: `Excluded: wallets that buy and sell the same token at least ${BOT_MIN_EACH} times each and end within ${BOT_FLAT * 100}% of flat (the wash-trading signature from the DN Institute's study of Solana xStock pools). Their fills are dropped from every number and from the published dataset.`,
     },
-    coverage: { txs_seen: cursors.seen ?? 0, txs_sampled: cursors.sampled ?? 0, fills: all.length },
+    coverage: { txs_seen: cursors.seen ?? 0, txs_sampled: cursors.sampled ?? 0, fills: all.length, bot_fills_excluded: botFills.length, bot_wallet_tokens: bots.size },
     overall: { xstocks: summarize(all.filter((r) => r.kind === "xstock")), prestocks: summarize(all.filter((r) => r.kind === "prestock")) },
     by_reference: group((r) => r.ref_source ?? "ungraded"),
     by_venue: group((r) => r.venue, 3), by_router: group((r) => r.router, 3),
@@ -331,17 +352,38 @@ async function report() {
     by_size: BUCKETS.map(([name, lo, hi]) => ({ key: name, ...summarize(all.filter((r) => r.quote_usd >= lo && r.quote_usd < hi)) })),
     worst_fills: worst,
   };
-  const ds = exportFills();
+  const ds = exportFills(new Set(botFills.map((r) => r.sig)));
+  writeScorecards(every, bots);
   const memo = `rehearsal-report v1 fills=${ds.count} sha256=${ds.sha256} xstock_median_bps=${ds.xstockMedian} prestock_median_bps=${ds.prestockMedian} at=${out.generated_at}`;
   const sig = await commitOnChain(memo).catch((e) => { console.error("commit", String(e).slice(0, 120)); return null; });
   const withCommit = { ...out, dataset: { fills: ds.count, sha256: ds.sha256, memo, commitment_tx: sig, cluster: "devnet" } };
   writeFileSync("data/report.json", JSON.stringify(withCommit));
   if (GIST_ID) {
-    for (const f of ["report.json", "fills.json"]) {
+    for (const f of ["report.json", "fills.json", "scorecards.json"]) {
       try { execFileSync("gh", ["gist", "edit", GIST_ID, "-a", `data/${f}`]); } catch { try { execFileSync("gh", ["gist", "edit", GIST_ID, "-f", f, `data/${f}`]); } catch (e) { console.error("gist", f, String(e).slice(0, 120)); } }
     }
   }
   console.log(`report: ${all.length} fills, ${out.overall.xstocks.graded} xStock + ${out.overall.prestocks.graded} PreStocks graded, dataset ${ds.sha256.slice(0, 12)}… committed ${sig ?? "(no commit)"}`);
+}
+
+// Per-wallet scorecards from the sampled fills, for auditing agents and bots (MCP agent_scorecard).
+function writeScorecards(rows: { trader: string | null; mint: string; symbol: string; kind: string; quote_usd: number; gap_bps: number | null; markout_300: number | null; block_time: number }[], bots: Set<string>) {
+  const by = new Map<string, typeof rows>();
+  for (const r of rows) if (r.trader) by.set(r.trader, [...(by.get(r.trader) ?? []), r]);
+  const wallets = [...by.entries()].map(([wallet, rs]) => {
+    const s = summarize(rs);
+    const tokens = [...new Set(rs.map((r) => r.symbol))];
+    return {
+      wallet, fills: rs.length, graded: s.graded, volume_usd: s.volume_usd,
+      median_gap_bps: s.median_gap_bps, p90_gap_bps: s.p90_gap_bps, within_25bps: s.within_25bps, median_markout_5m_bps: s.median_markout_5m_bps,
+      tokens: tokens.slice(0, 8), first: Math.min(...rs.map((r) => r.block_time)), last: Math.max(...rs.map((r) => r.block_time)),
+      bot: rs.some((r) => bots.has(`${r.trader}|${r.mint}`)),
+    };
+  }).filter((w) => w.graded >= 3).sort((a, b) => b.fills - a.fills).slice(0, 1000);
+  writeFileSync("data/scorecards.json", JSON.stringify({
+    generated_at: now(), wallets,
+    method: "Sampled fills graded against fair value (see report.json method). median_gap_bps > 0 means worse than fair. Markout: reference 5 minutes later vs the fill. bot = round-trips a token (the report excludes those fills).",
+  }));
 }
 
 async function reportLoop() { for (;;) { await sleep(600_000); try { await report(); } catch (e) { console.error("report", e); } } }

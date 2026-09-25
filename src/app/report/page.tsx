@@ -12,7 +12,7 @@ type Row = Summary & { key: string };
 type Worst = { sig: string; symbol: string; side: string; usd: number; fill: number; ref: number; ref_source: string; gap_bps: number; venue: string; router: string; t: number };
 type Report = {
   generated_at: number; started_at: number;
-  coverage: { txs_seen: number; txs_sampled: number; fills: number };
+  coverage: { txs_seen: number; txs_sampled: number; fills: number; bot_fills_excluded?: number; bot_wallet_tokens?: number };
   overall: { xstocks: Summary; prestocks: Summary };
   by_venue: Row[]; by_router: Row[]; by_token: Row[]; by_session: Row[]; by_size: Row[];
   worst_fills: Worst[];
@@ -59,7 +59,7 @@ export default function ReportPage() {
         <p className="mt-3 text-[16px] text-ink-2">
           Brokers have to publish how well they fill your orders. On-chain stock venues don&apos;t, since the SEC exempted them in September. So we grade the trades we see against the real stock price, in public.
         </p>
-        {r && <p className="mt-3 text-[13px] text-muted">Updated {ago(r.generated_at)} · {r.coverage.fills.toLocaleString()} trades since {new Date(r.started_at * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>}
+        {r && <p className="mt-3 text-[13px] text-muted">Updated {ago(r.generated_at)} · {r.coverage.fills.toLocaleString()} trades since {new Date(r.started_at * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{r.coverage.bot_fills_excluded ? <> · {r.coverage.bot_fills_excluded.toLocaleString()} wash-trading bot fills excluded <InfoTip>Wallets that buy and sell the same token at least 5 times each and end within 10% of flat are round-tripping, not investing (the signature from the DN Institute&apos;s study of Solana xStock pools). Their fills are dropped from every number and from the published dataset.</InfoTip></> : null}</p>}
       </header>
 
       {err && <p role="alert" className="rounded-lg bg-bad-soft px-4 py-3 text-[14px] text-bad">{err}</p>}
