@@ -10,6 +10,7 @@ export default function Footer() {
           <p className="max-w-md">Rehearsal shows prices and can cancel trades that miss your limit. It isn&apos;t a broker and doesn&apos;t give investment advice.</p>
         </div>
         <nav aria-label="Legal" className="flex flex-wrap gap-5">
+          <Link href="/agents" className="hover:text-ink">For agents</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>
           <a href="https://github.com/Clintobi/rehearsal" className="hover:text-ink" target="_blank" rel="noreferrer">Code</a>

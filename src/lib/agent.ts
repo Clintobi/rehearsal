@@ -224,7 +224,7 @@ async function runCheck(asset: Asset, usd: number, side: "buy" | "sell") {
     reasons.push(`The fill is ${gapPct.toFixed(2)}% worse than fair value (${evidence.source}).`);
   }
   if (xs && regular === false) reasons.push(evidence.level === "perp"
-    ? `${label}. Judged against the 24/7 ${ticker} perp at $${evidence.price!.toFixed(2)}, not Friday's close.`
+    ? `${label}. Judged against the 24/7 ${ticker} perp at $${evidence.price!.toFixed(2)}, not the last close.`
     : `${label} and no 24/7 reference for ${ticker}. The last price may be hours old.`);
   if (r.roundTripCostPct != null && r.roundTripCostPct > 2) reasons.push(`Buying and selling straight back loses ${r.roundTripCostPct.toFixed(2)}%. Liquidity is thin.`);
   if (!xs) reasons.push("PreStocks can't be redeemed at the mark on demand and pay a 1% fee on every transfer, so the gap to the mark is a valuation call.");
@@ -510,4 +510,39 @@ export async function executionReport(symbol?: string) {
     method: r.method, dataset: r.dataset,
     page: "https://rehearsal-stocklana.vercel.app/report",
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Agent scorecard: a wallet's sampled fills from the public report, graded against fair value.
+// Published by the recorder as scorecards.json (wallets with at least 5 graded fills; bots flagged).
+
+const SCORECARD_URL = process.env.NEXT_PUBLIC_SCORECARD_URL ?? "https://gist.githubusercontent.com/Clintobi/7b15feb84f4634fa5ef05eec7e248f9c/raw/scorecards.json";
+
+export async function scorecard(wallet: string) {
+  try { new PublicKey(wallet); } catch { return { error: "wallet must be a Solana public key" }; }
+  const r = await fetch(`${SCORECARD_URL}?t=${Math.floor(Date.now() / 60_000)}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+  if (!r) return { error: "Scorecards are not published yet." };
+  const card = (r.wallets ?? []).find((w: { wallet: string }) => w.wallet === wallet);
+  return card
+    ? { ...card, method: r.method, generatedAt: r.generated_at }
+    : { wallet, found: false, note: `No sampled fills for this wallet. The report samples up to 4 fills per token every 30 seconds, so active wallets appear within a day. ${r.wallets?.length ?? 0} wallets have scorecards.`, generatedAt: r.generated_at };
+}
+
+// On-chain official prints written by the guard program's crosses (devnet until the mainnet deploy).
+export async function officialPrints() {
+  const { closePda, crossPda, decodeClose, decodeCross } = await import("./guard");
+  const xs = (await allAssets()).filter((a) => a.pyth);
+  const conn = new Connection(process.env.BREAKER_RPC ?? "https://api.devnet.solana.com", "confirmed");
+  const keys = xs.flatMap((a) => [closePda(a.pyth!.feed), crossPda(a.pyth!.feed)]);
+  const infos = await conn.getMultipleAccountsInfo(keys).catch(() => keys.map(() => null));
+  return xs.map((a, i) => {
+    const c = infos[2 * i], o = infos[2 * i + 1];
+    const close = c ? decodeClose(c.data as Buffer) : null;
+    const open = o ? decodeCross(o.data as Buffer) : null;
+    return {
+      symbol: a.symbol,
+      close: close && close.sessionClose ? { sessionClose: new Date(close.sessionClose * 1000).toISOString(), price: Number(close.priceE6) / 1e6, publishedAt: new Date(close.pricePublish * 1000).toISOString(), account: closePda(a.pyth!.feed).toBase58() } : null,
+      open: open && open.openedAt ? { price: Number(open.priceE6) / 1e6, openedAt: new Date(open.openedAt * 1000).toISOString(), account: crossPda(a.pyth!.feed).toBase58() } : null,
+    };
+  }).filter((x) => x.close || x.open);
 }

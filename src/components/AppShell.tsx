@@ -46,6 +46,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-6xl px-4 pb-10 pt-6 sm:px-6 md:pt-10">{children}</main>
       <footer className="mx-auto flex max-w-6xl flex-wrap gap-x-5 gap-y-2 px-4 pb-28 pt-6 text-[12px] text-muted sm:px-6 md:pb-10">
         <span>Not investment advice. Prices can change before your trade lands.</span>
+        <Link href="/agents" className="hover:text-ink">For agents</Link>
         <Link href="/terms" className="hover:text-ink">Terms</Link>
         <Link href="/privacy" className="hover:text-ink">Privacy</Link>
       </footer>

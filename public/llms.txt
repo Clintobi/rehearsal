@@ -1,0 +1,30 @@
+# Rehearsal
+
+> Tradability passports and protected swaps for tokenized stocks on Solana (xStocks and PreStocks). Before a trade, Rehearsal answers what the token legally is, how trustworthy the price is right now, and how much you could sell at your size. Then it builds a swap that reverts on-chain if the fill is worse than fair value, and writes a receipt into the transaction.
+
+## For agents
+
+- MCP server (Streamable HTTP, no key): https://rehearsal-stocklana.vercel.app/api/mcp
+- Tools: passport, check_trade, build_protected_swap, verify_receipt, market_status, price_policy, prestocks_research, execution_report, agent_scorecard, list_stocks
+- Skill: `npx skills add Clintobi/rehearsal`
+- Rule of thumb: call passport before any trade; follow decision.action (proceed, reduce_size, wait, avoid); execute with build_protected_swap; verify with verify_receipt.
+
+## REST (no key)
+
+- OpenAPI: https://rehearsal-stocklana.vercel.app/api/v1/openapi.json
+- GET /api/v1/passport?symbol=NVDAx&usd=1000&side=buy
+- POST /api/v1/swap {symbol, usd, side, wallet, maxGapBps}
+- GET /api/v1/certificate?sig=<signature>
+- GET /api/v1/policy
+- GET /api/v1/prestocks
+
+## How prices are chosen
+
+US regular session: Pyth Equity.US price read on-chain. Outside it (pre-market, after hours, overnight, weekends): the Lighter 24/7 perpetual mark for the same stock. Halted by Nasdaq or the issuer: no swap is built. Pre-IPO (PreStocks): the PreStocks mark, which is a valuation, not a market price.
+
+## Links
+
+- App: https://rehearsal-stocklana.vercel.app/app
+- Agents: https://rehearsal-stocklana.vercel.app/agents
+- Execution report: https://rehearsal-stocklana.vercel.app/report
+- Code: https://github.com/Clintobi/rehearsal
