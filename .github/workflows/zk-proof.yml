@@ -15,7 +15,7 @@ jobs:
       - name: Free disk space and add swap
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
-          sudo fallocate -l 16G /swapfile2 && sudo chmod 600 /swapfile2 && sudo mkswap /swapfile2 && sudo swapon /swapfile2
+          sudo fallocate -l 28G /swapfile2 && sudo chmod 600 /swapfile2 && sudo mkswap /swapfile2 && sudo swapon /swapfile2
           free -h && df -h /
 
       - name: Install build tools
