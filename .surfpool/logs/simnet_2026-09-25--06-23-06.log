@@ -81,3 +81,22 @@
 [2026-09-25--06-25-21 INFO surfpool::cli::simnet] Account PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF updated.
 [2026-09-25--06-25-21 INFO surfpool::cli::simnet] Account G92J4ZFggKZ9LbsQ2zBpajRvRto7ed7uRuJJqWsX4BhJ updated.
 [2026-09-25--06-25-21 INFO surfpool::cli::simnet] Account MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms updated.
+[2026-09-25--06-25-21 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 5: custom program error: 0x1770
+[2026-09-25--06-25-24 INFO surfpool::cli::simnet] Account 3zpyzMVe1QyQNQ9wrZd865fEwYEMjLKRpFWuTcF7z4JX updated.
+[2026-09-25--06-25-27 INFO surfpool::cli::simnet] Account 6GcDnbxW3jxTa8BSTJ63CSTS7JNSNn1DLGu1WMjoLnmP updated.
+[2026-09-25--06-25-31 INFO surfpool::cli::simnet] Account 5VETJ8h3p4JrESYrzhjTDAWPEjDjfcnduqe9CjxgqBNd updated.
+[2026-09-25--06-25-32 INFO surfpool::cli::simnet] Account 2Se6p8VJTcsPWZ2RyaSVCkE5L5ocdFqA5Vj2CEGDZ1rW updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account 4J9UJDSSn25i84r8TVEgpQtfQSxyQhYnNxwBULhGRBdT updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account HKrxHbejNHQc411CurMyR6WnMuxd5j5gsqXCkNxUp4vD updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account 2K2XBjThCwiJmEBERtRuUjBqZ5fCJ1byib37kcqb4MMj updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account 6R4r93V5fcMzc13CL2enEepDSYcr4Qx3ptZBDwudTXCo updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account FaHQ9Ny2U2RkcdapsKVr9pvnt4Mg7n92NdKnvyRzuibH updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account 5TSHEwRAgHLTYkchrUNiKUL2RvuZgdh3vExbMptWrHoX updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account CbTCXA1r93p8p1v8Uhp6Ufoe15FwsmzimWY8AG3TbyxR updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD updated.
+[2026-09-25--06-25-33 INFO surfpool::cli::simnet] Account whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc updated.
+[2026-09-25--06-25-35 INFO surfpool::cli::simnet] Account 5VETJ8h3p4JrESYrzhjTDAWPEjDjfcnduqe9CjxgqBNd updated.
+[2026-09-25--06-25-36 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 5: custom program error: 0x1770

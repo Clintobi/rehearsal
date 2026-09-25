@@ -31,7 +31,7 @@ export async function GET() {
   const conn = rpc();
   const [prices, mults] = await Promise.all([
     readPrices(conn, pythAssets.map((a) => a.pyth!.account)).catch(() => []),
-    mintInfos(conn, assets.map((a) => a.mint)).catch(() => new Map()),
+    mintInfos(conn, assets.map((a) => a.mint)),
   ]);
   const px = new Map(pythAssets.map((a, i) => [a.mint, prices[i]]));
 

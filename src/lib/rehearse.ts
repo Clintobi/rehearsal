@@ -101,7 +101,10 @@ export function judge(r: Omit<Rehearsal, "verdict">): Verdict {
 const fmtB = (v: number) => (v >= 1e12 ? `${(v / 1e12).toFixed(2)}T` : `${(v / 1e9).toFixed(0)}B`);
 
 export async function rehearse(asset: Asset, usd: number, side: "buy" | "sell", conn = rpc()): Promise<Rehearsal | { error: string }> {
-  const [ref, mults] = await Promise.all([reference(asset, conn).catch(() => null), mintInfos(conn, [asset.mint]).catch(() => new Map())]);
+  const refP = reference(asset, conn).catch(() => null);
+  let mults: Awaited<ReturnType<typeof mintInfos>>;
+  try { mults = await mintInfos(conn, [asset.mint]); } catch { return { error: "Couldn't read this token's on-chain data just now. Try again in a few seconds." }; }
+  const ref = await refP;
   // Token-2022 scaled UI amount: one raw unit is `mult` shares as the wallet shows them.
   const mult = mults.get(asset.mint)?.multiplier ?? 1;
   // Token-2022 transfer fee (PreStocks: 1%) is withheld from every transfer of the stock,

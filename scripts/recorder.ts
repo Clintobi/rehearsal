@@ -20,7 +20,7 @@ import { feedAccount, decodePriceUpdate } from "../src/lib/pyth";
 import { mintInfos, type MintInfo } from "../src/lib/mintinfo";
 
 const RPC = process.env.SOLANA_RPC ?? "https://api.mainnet-beta.solana.com";
-const SAMPLE_PER_MINT = Number(process.env.SAMPLE_PER_MINT ?? 6); // fills graded per mint per 30s cycle
+const SAMPLE_PER_MINT = Number(process.env.SAMPLE_PER_MINT ?? 4); // fills graded per mint per 30s cycle
 const GIST_ID = process.env.REPORT_GIST_ID;
 // Below this size, fees, rent and rounding swamp the price, so the fill is recorded but not graded.
 const MIN_GRADE_USD = Number(process.env.MIN_GRADE_USD ?? 10);
