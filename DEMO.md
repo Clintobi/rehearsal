@@ -31,7 +31,7 @@ Rehearsal gives every tokenized stock on Solana a passport (what you hold, how g
 ## Proof, precisely
 
 - **On-chain Groth16 verification:** the SP1 report program's proof over the 310-fill snapshot (generated on GitHub Actions) is verified by `attest_report` on devnet in 110,458 compute units ([tx](https://explorer.solana.com/tx/xWLNrsazKgyC2xADjP3nUACbvqzTYTBrfdDvPtAYtZTtvFH8UWGZkyEHBw4kjqEqfyriJcgRBrteJLfqAkNsJQk?cluster=devnet), attestation `CjtFcKbRrHyBtmdSf1FagcJMzq1EYnnu5rFNdgyGrodH`). A tampered dataset hash is rejected (`ProofInvalid`). See `docs/zk-onchain-output.txt`.
-- **The bot-free dataset:** `zk/data/fills.json` now holds the bot-filtered snapshot (903 graded fills, sha256 `d16b791f…`, committed on devnet). Its `--execute` check passes locally (18.9M instructions). Its Groth16 proof is running on GitHub Actions: https://github.com/Clintobi/rehearsal/actions/workflows/zk-proof.yml
+- **The bot-free dataset:** `zk/data/fills-botfree.json` (903 graded fills, sha256 `d16b791f…`, committed on devnet) passes the `--execute` check (18.9M instructions). Its Groth16 proof needs a bigger machine than the free GitHub runner, which was cut off twice while proving; the on-chain proof above covers the 310-fill snapshot.
 - **Anyone can recompute:** `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills with the same integer math as the ZK program.
 
 ## Blink

@@ -39,4 +39,4 @@ Distribute  wallet check, Blinks, receipts
 
 Rehearsal is the retail side of the best-execution stack that the SEC exemption stopped requiring.
 
-Item 6 shipped: the report's Groth16 proof is verified on Solana by the guard program's `attest_report` (devnet), and the bot-free snapshot is being re-proven on GitHub Actions. See [zk/README.md](../zk/README.md).
+Item 6 shipped: the report's Groth16 proof is verified on Solana by the guard program's `attest_report` (devnet), over the 310-fill snapshot; the bot-free dataset passes the execute check, and its Groth16 proof needs a bigger machine than a free GitHub runner. See [zk/README.md](../zk/README.md).

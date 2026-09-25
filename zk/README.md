@@ -18,20 +18,22 @@ The Groth16 proof over the first snapshot (310 graded fills; proof files in `zk/
 
 Transaction: https://explorer.solana.com/tx/xWLNrsazKgyC2xADjP3nUACbvqzTYTBrfdDvPtAYtZTtvFH8UWGZkyEHBw4kjqEqfyriJcgRBrteJLfqAkNsJQk?cluster=devnet. Attestation account: `CjtFcKbRrHyBtmdSf1FagcJMzq1EYnnu5rFNdgyGrodH`. The same proof with a tampered dataset hash is rejected with `ProofInvalid` (`docs/zk-onchain-output.txt`). `zk/solana-convert` converts SP1's gnark proof and key into the syscall format.
 
-## Current snapshot: bots excluded
+## Bot-free dataset: execute-checked, proof pending
 
-`zk/data/fills.json` is now the bot-filtered dataset: 903 graded fills, with wash-trading round-trippers removed. Its sha256 starts `d16b791f` and is committed on devnet by the recorder. Expected public values:
+`zk/data/fills-botfree.json` is the dataset with wash-trading round-trippers removed: 903 graded fills, sha256 starting `d16b791f`, committed on devnet by the recorder. `--execute` over it prints:
 
 ```
 d16b791f23136569d625732d70506edc864639c057175ef6fbb782566b571abf87030000730300003f1ca7b564000000000000002c000000ed0200001400000086fb77fe01000000540000004a02000005000000
 ```
+
+Its Groth16 proof needs more memory than a free GitHub runner has: two runs were cut off in the proving step. `zk/data/fills.json` stays the proven 310-fill snapshot (public values `1d4b3ed6…`), matching the proof in `zk/proof/` and the attestation on devnet.
 
 ## Reproduce
 
 ```bash
 curl -L https://sp1up.succinct.xyz | bash && sp1up
 cd zk/script
-cargo run --release -- --execute    # 18.9M instructions; public values must equal the hex above
+cargo run --release -- --execute    # public values must equal the snapshot's hex (1d4b3ed6… for fills.json)
 cargo run --release                 # Groth16 (Docker, 16 GB+ RAM), or dispatch .github/workflows/zk-proof.yml
 ```
 
