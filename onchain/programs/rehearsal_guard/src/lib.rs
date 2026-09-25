@@ -15,10 +15,13 @@ pub mod oracle;
 pub mod orders;
 pub mod state;
 pub mod tokens;
+pub mod zk;
+pub mod zk_vk;
 
 use breaker::{Breaker, BreakerChanged, BreakerState};
 use errors::GuardError;
 use orders::*;
+use zk::*;
 use state::*;
 
 declare_id!("TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE");
@@ -274,6 +277,11 @@ pub mod rehearsal_guard {
 
     pub fn cancel_order(ctx: Context<CancelOrder>) -> Result<()> {
         orders::cancel(ctx)
+    }
+
+    /// Verifies the execution report's SP1 Groth16 proof on-chain and records the attested numbers.
+    pub fn attest_report(ctx: Context<AttestReport>, pi_a: [u8; 64], pi_b: [u8; 128], pi_c: [u8; 64], nonce: [u8; 32], public_values: Vec<u8>) -> Result<()> {
+        zk::attest(ctx, pi_a, pi_b, pi_c, nonce, public_values)
     }
 
     /// For any venue to CPI before a fill: fails unless the stock is tradeable right now.

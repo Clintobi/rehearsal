@@ -152,6 +152,15 @@ export default function ReportPage() {
             </section>
           )}
 
+          <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border border-line bg-panel px-5 py-4 text-[14px]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-good-soft px-2.5 py-1 text-[12px] font-semibold text-good">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m4.5 8.5 2.5 2.5 5-5.5" /></svg>
+              Proven on Solana
+            </span>
+            <span className="text-ink-2">A zero-knowledge proof that these grades were computed correctly from 310 trades was checked by Solana itself.</span>
+            <a className="font-medium text-brand-ink hover:underline" href="https://explorer.solana.com/tx/xWLNrsazKgyC2xADjP3nUACbvqzTYTBrfdDvPtAYtZTtvFH8UWGZkyEHBw4kjqEqfyriJcgRBrteJLfqAkNsJQk?cluster=devnet" target="_blank" rel="noreferrer">See the proof check</a>
+          </section>
+
           <section className="grid gap-4 lg:grid-cols-2">
             {r.dataset && (
               <details className="group h-fit rounded-[10px] border border-line bg-panel">

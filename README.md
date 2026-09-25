@@ -59,7 +59,9 @@ Tests: 17/17 on a Surfpool mainnet fork (`scripts/fork-orders-test.ts`, output i
 
 Every report update publishes the exact graded-fill dataset (`fills.json`, one row per fill with its transaction signature) and writes the dataset's SHA-256 to Solana devnet in a memo transaction. `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills, using the same integer math as the ZK program.
 
-`zk/` holds an SP1 program that recomputes the report from raw fills without trusting any precomputed gap. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares. Generating the Groth16 proof (the step that makes it verifiable on Solana with `sp1-solana`) needs a machine with 16 GB+ RAM and Docker; the build machine here has 8 GB, so it hasn't been run yet. Until then the report is verified by recomputation plus the on-chain commitment.
+`zk/` holds an SP1 program that recomputes the report from raw fills without trusting any precomputed gap. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares.
+
+**ZK-verified on Solana.** The Groth16 proof over the 310-fill snapshot (`zk/proof/`, generated on a GitHub Actions runner by `.github/workflows/zk-proof.yml`) is verified on-chain by the program's `attest_report` instruction. It rebuilds SP1 v6's five public inputs (program vkey hash, masked sha256 of the public values, exit code, recursion vk root, nonce) and runs the pairing check with Solana's alt_bn128 syscalls, in 110,458 compute units. It then stores a `ReportAttestation` with the proven numbers. The same proof submitted with a different dataset hash is rejected with `ProofInvalid`. See `docs/zk-onchain-output.txt`. `zk/solana-convert` converts SP1's gnark proof and key into the syscall format and verifies off-chain first. 
 
 ## Blink: the check where traders already are
 

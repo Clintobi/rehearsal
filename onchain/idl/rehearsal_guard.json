@@ -8,6 +8,79 @@
   },
   "instructions": [
     {
+      "name": "attest_report",
+      "docs": [
+        "Verifies the execution report's SP1 Groth16 proof on-chain and records the attested numbers."
+      ],
+      "discriminator": [
+        244,
+        249,
+        183,
+        49,
+        34,
+        146,
+        190,
+        63
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "attestation",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "pi_a",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "pi_b",
+          "type": {
+            "array": [
+              "u8",
+              128
+            ]
+          }
+        },
+        {
+          "name": "pi_c",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "nonce",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "public_values",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
       "name": "cancel_order",
       "discriminator": [
         95,
@@ -1036,6 +1109,19 @@
       ]
     },
     {
+      "name": "ReportAttestation",
+      "discriminator": [
+        75,
+        120,
+        113,
+        114,
+        166,
+        104,
+        131,
+        229
+      ]
+    },
+    {
       "name": "Stats",
       "discriminator": [
         190,
@@ -1113,6 +1199,19 @@
         205,
         225,
         42
+      ]
+    },
+    {
+      "name": "ReportVerified",
+      "discriminator": [
+        37,
+        251,
+        156,
+        40,
+        166,
+        248,
+        79,
+        215
       ]
     }
   ],
@@ -1246,6 +1345,11 @@
       "code": 6025,
       "name": "NothingToCross",
       "msg": "Nothing to cross between these orders"
+    },
+    {
+      "code": 6026,
+      "name": "ProofInvalid",
+      "msg": "The zero-knowledge proof did not verify"
     }
   ],
   "types": [
@@ -1924,6 +2028,119 @@
                 "type": "u64"
               }
             ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReportAttestation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "dataset_sha256",
+            "docs": [
+              "sha256 of the fills dataset the report was computed from."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "fills",
+            "type": "u32"
+          },
+          {
+            "name": "xstock",
+            "type": {
+              "defined": {
+                "name": "ReportStats"
+              }
+            }
+          },
+          {
+            "name": "prestock",
+            "type": {
+              "defined": {
+                "name": "ReportStats"
+              }
+            }
+          },
+          {
+            "name": "attester",
+            "type": "pubkey"
+          },
+          {
+            "name": "slot",
+            "type": "u64"
+          },
+          {
+            "name": "unix_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReportStats",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "graded",
+            "type": "u32"
+          },
+          {
+            "name": "volume_usd_e6",
+            "type": "u64"
+          },
+          {
+            "name": "median_gap_bps",
+            "type": "i32"
+          },
+          {
+            "name": "p90_gap_bps",
+            "type": "i32"
+          },
+          {
+            "name": "within_25bps",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReportVerified",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "dataset_sha256",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "fills",
+            "type": "u32"
+          },
+          {
+            "name": "xstock_median_gap_bps",
+            "type": "i32"
+          },
+          {
+            "name": "prestock_median_gap_bps",
+            "type": "i32"
           }
         ]
       }

@@ -54,4 +54,6 @@ pub enum GuardError {
     WrongOrder,
     #[msg("Nothing to cross between these orders")]
     NothingToCross,
+    #[msg("The zero-knowledge proof did not verify")]
+    ProofInvalid,
 }

@@ -47,3 +47,5 @@ data/recorder.db*
 zk/target/
 zk/program/target/
 zk/script/target/
+
+zk/solana-convert/target/

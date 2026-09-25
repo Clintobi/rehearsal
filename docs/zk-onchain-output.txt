@@ -1,0 +1,13 @@
+SP1 v6 Groth16 proof of the execution report, verified on Solana devnet
+Program:     TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE (attest_report)
+Proof made:  GitHub Actions run 36103990429 (zk/proof/)
+Program vkey hash: 0x00ae3ee664472a8de24a9c778ea40d3169e6d88f957b2ac4a6a310c8fd51f615
+
+VERIFIED   xWLNrsazKgyC2xADjP3nUACbvqzTYTBrfdDvPtAYtZTtvFH8UWGZkyEHBw4kjqEqfyriJcgRBrteJLfqAkNsJQk  (110,458 compute units)
+           attestation CjtFcKbRrHyBtmdSf1FagcJMzq1EYnnu5rFNdgyGrodH
+           dataset sha256 1d4b3ed610384ec03abd824de75a387c17bc526c40ee3f4b0f4429884e0f144c, 310 fills
+           xStocks: 305 graded, median +3 bps, p90 +56 bps, 240 within 25 bps
+           PreStocks: 5 graded, median +32 bps, p90 +277 bps
+
+REJECTED   DYsGFgzgFNEsDwrUR1UguiQXLMD83q93gxfmesRjqYXuuSkA2eCSUYR4CqB4oc8xwrpK46LrM5QMVe8moDcip9A
+           same proof, different committed dataset hash -> ProofInvalid (6026)
