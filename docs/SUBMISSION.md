@@ -53,6 +53,9 @@ The Gate uses DBC's transfer-hook configs (`create_config_with_transfer_hook`, `
 ## Business
 Consumers: a small fee only on protected trades (0.1–0.25%). B2B: wallets and apps embed the passport and protection API; launchpads add the Gate; venues and lenders buy the report, exit-capacity and halt data. First market: Nigeria, where stablecoin holders lack a fair route to US stocks. Distribution through licensed partners (the Dangote IPO's on-chain allocation ran through NectarFi and GetEquity), not a self-issued rail.
 
+## Open-source components
+Built on: Anchor (programs), Jupiter swap API (routing), Pyth push oracle (prices), Meteora DBC SDK (launch gate), SP1 (zero-knowledge proof), Surfpool (mainnet-fork tests), Next.js, Solana wallet adapter, spl-token. All original code in this repo is ours; these are used as dependencies.
+
 ## Honest limits
 - Protected swaps on mainnet fix fair value when the transaction is built (it's valid for about a minute); the guard program, which reads Pyth at execution, is on devnet until its mainnet deploy (about 4 SOL).
 - Pyth is a reference price, not the legal NBBO. The perp mark is an estimate while the market is shut.
