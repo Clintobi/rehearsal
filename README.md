@@ -59,7 +59,7 @@ Tests: 17/17 on a Surfpool mainnet fork (`scripts/fork-orders-test.ts`, output i
 
 Every report update publishes the exact graded-fill dataset (`fills.json`, one row per fill with its transaction signature) and writes the dataset's SHA-256 to Solana devnet in a memo transaction. `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills, using the same integer math as the ZK program.
 
-`zk/` holds an SP1 program that recomputes the report from raw fills without trusting any precomputed gap. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares. A Groth16 proof over a frozen 310-fill snapshot is in progress on an external prover, since this repo's machine lacks the RAM, and will be verified on Solana with `sp1-solana`.
+`zk/` holds an SP1 program that recomputes the report from raw fills without trusting any precomputed gap. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares. Generating the Groth16 proof (the step that makes it verifiable on Solana with `sp1-solana`) needs a machine with 16 GB+ RAM and Docker; the build machine here has 8 GB, so it hasn't been run yet. Until then the report is verified by recomputation plus the on-chain commitment.
 
 ## Blink: the check where traders already are
 

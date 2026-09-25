@@ -223,7 +223,7 @@ export default function ReportPage() {
                 <li>Spot-check any fill against the chain with its signature.</li>
               </ol>
               <p className="mt-4 text-xs text-mute">
-                Zero-knowledge proof: an SP1 program (<a className="underline" href="https://github.com/Clintobi/rehearsal/tree/main/zk" target="_blank" rel="noreferrer">zk/</a>) recomputes the report from raw fills without trusting any precomputed number. Its Groth16 proof over a frozen 310-fill snapshot is being generated and will be verified on Solana.
+                Zero-knowledge proof: an SP1 program (<a className="underline" href="https://github.com/Clintobi/rehearsal/tree/main/zk" target="_blank" rel="noreferrer">zk/</a>) recomputes the report from raw fills without trusting any precomputed number. The program is ready to prove; producing the Solana-verifiable Groth16 proof needs a 16 GB+ prover machine, so today the report is verified by recomputation plus the on-chain commitment above.
               </p>
             </section>
           )}
