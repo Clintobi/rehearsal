@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Rehearsal } from "@/lib/rehearse";
 import { useBoard, useFetch } from "@/lib/hooks";
 import { compactUsd, gapTone, pct, price, usd } from "@/lib/format";
-import { Button, cx, Logo, Pill, Segmented, Skeleton, ThemeToggle, TokenIcon, toneText } from "@/components/ui";
+import { cx, Logo, Pill, Segmented, Skeleton, ThemeToggle, TokenIcon, toneText } from "@/components/ui";
 import Footer from "@/components/Footer";
 
 const DEMO = [
@@ -22,7 +22,9 @@ export default function Landing() {
         <Link href="/" aria-label="Rehearsal home"><Logo /></Link>
         <nav aria-label="Site" className="hidden items-center gap-1 sm:flex">
           <Link href="/app/markets" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Markets</Link>
+          <Link href="/app/private" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Pre-IPO</Link>
           <Link href="/report" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Report</Link>
+          <Link href="/agents" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">For agents</Link>
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
@@ -36,6 +38,7 @@ export default function Landing() {
         <HowItWorks />
         <ReportTeaser />
         <Weekend />
+        <Builders />
         <Closing />
       </main>
       <Footer />
@@ -50,16 +53,16 @@ function Hero() {
     <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-10 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-28 lg:pt-20">
       <div>
         <h1 className="rise text-[clamp(2.5rem,5.6vw,4.5rem)] font-semibold leading-[1.02] tracking-[-0.035em]">
-          Buy tokenized stocks at the price they&apos;re actually worth.
+          Know what you&apos;re buying before you buy it.
         </h1>
-        <p className="rise mt-6 max-w-[46ch] text-[18px] leading-relaxed text-ink-2 [animation-delay:90ms]">
-          Rehearsal checks your trade against the real stock price before you sign, and cancels it on-chain if the fill comes in worse.
+        <p className="rise mt-6 max-w-[48ch] text-[18px] leading-relaxed text-ink-2 [animation-delay:90ms]">
+          Every tokenized stock gets a passport: what the token really is, whether its price can be trusted right now, and how much you could sell. Then the trade cancels on-chain if the fill comes in worse than fair.
         </p>
         <div className="rise mt-9 flex flex-wrap gap-3 [animation-delay:160ms]">
           <Link href="/app" className={cx(cta, "bg-brand text-on-brand hover:bg-brand-hover")}>Check a trade</Link>
           <Link href="/report" className={cx(cta, "bg-surface-2 text-ink hover:bg-line")}>See how trades are filling</Link>
         </div>
-        <p className="rise mt-8 text-[13px] text-muted [animation-delay:220ms]">xStocks and PreStocks on Solana · Prices from Pyth and Jupiter</p>
+        <p className="rise mt-8 text-[13px] text-muted [animation-delay:220ms]">Know what you hold. Know what you paid. Know you can get out. · xStocks and PreStocks on Solana</p>
       </div>
       <div className="rise [animation-delay:120ms]"><LivePreview /></div>
     </section>
@@ -151,21 +154,21 @@ function HowItWorks() {
         Three things happen before your money moves.
       </h2>
       <div className="mt-16 space-y-20 lg:space-y-28">
-        <Step n={1} title="Check" body="See your real fill before you sign: what you'd pay per share, the real price, and the difference in dollars. Token fees and stock splits are already counted.">
+        <Step n={1} title="Check" body="See your real fill before you sign, against the right price for the hour: the live stock price in US trading hours, a 24/7 price when the market is shut. The passport also says what the token legally is and how much of it you could sell without moving the price.">
           <MiniScale />
         </Step>
-        <Step n={2} title="Protect" body="Turn on price protection and the trade runs inside a Solana program that checks the fill against the real price. If it comes in worse than your limit, the whole trade is cancelled." flip>
+        <Step n={2} title="Protect" body="With price protection on, the swap's minimum is set from fair value, not from the quote. If the fill would come in worse than your limit, the whole trade is cancelled on-chain, and your limit and the fair price are written into the transaction as a receipt." flip>
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-[10px] border border-line bg-panel px-4 py-3 text-[14px]">
               <span className="font-medium">Price protection</span>
               <span className="text-muted">Cancel if 5% worse than fair</span>
             </div>
             <div className="rounded-[10px] bg-bad-soft px-4 py-3 text-[14px] text-bad">
-              <b className="font-semibold">Stopped.</b> The fill came in 39% over valuation, so nothing was traded.
+              <b className="font-semibold">Stopped.</b> You&apos;d have received less than your protected minimum, so nothing was traded.
             </div>
           </div>
         </Step>
-        <Step n={3} title="Prove" body="The trades we see on Solana are graded against the real price and published, with the data anyone can check. Brokers have to do this. On-chain venues don't, so we do.">
+        <Step n={3} title="Prove" body="Real trades on Solana are graded against the real price and published every ten minutes, with wash-trading bots taken out. The dataset is hashed on Solana and the numbers are proven with a zero-knowledge proof. Brokers have to report this. On-chain venues don't, so we do.">
           <MiniReport />
         </Step>
       </div>
@@ -260,9 +263,32 @@ function Weekend() {
         <h2 className="text-[clamp(1.9rem,3.6vw,2.75rem)] font-semibold leading-tight tracking-[-0.03em]">The weekend doesn&apos;t get to set your price.</h2>
         <div>
           <p className="text-[17px] leading-relaxed text-ink-2">
-            Tokenized stocks trade all weekend. The real stocks don&apos;t, so weekend prices are guesses on thin volume. With a fair order you can wait for Monday instead, and everyone waiting gets filled together at the first real price.
+            Tokenized stocks trade all weekend. The real stocks don&apos;t, so the last close is a stale yardstick. Rehearsal judges off-hours trades against a 24/7 perpetual price instead. Or wait: with a fair order, everyone waiting is filled together at Monday&apos;s first real price, or at the 4 PM close.
           </p>
           <Link href="/app/orders" className="mt-6 inline-block text-[15px] font-semibold text-brand-ink hover:underline">How orders work</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Builders() {
+  return (
+    <section className="border-t border-line bg-panel">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:gap-20">
+        <div>
+          <h2 className="text-[clamp(1.6rem,3vw,2.25rem)] font-semibold leading-tight tracking-[-0.03em]">Give your agent a limit it can&apos;t break.</h2>
+          <p className="mt-4 max-w-[48ch] text-[17px] leading-relaxed text-ink-2">
+            The same passport and protected swaps over MCP and a plain API, no key. An agent can&apos;t overpay even when its model is wrong, and every fill comes back with a receipt you can verify.
+          </p>
+          <Link href="/agents" className="mt-6 inline-block text-[15px] font-semibold text-brand-ink hover:underline">Connect an agent</Link>
+        </div>
+        <div>
+          <h2 className="text-[clamp(1.6rem,3vw,2.25rem)] font-semibold leading-tight tracking-[-0.03em]">Launches that stop when the stock stops.</h2>
+          <p className="mt-4 max-w-[48ch] text-[17px] leading-relaxed text-ink-2">
+            For Meteora launches priced in a tokenized stock: a transfer hook that pauses the launch token while that stock is halted, the way listed markets pause, and steps aside when the curve graduates.
+          </p>
+          <Link href="/agents#launch" className="mt-6 inline-block text-[15px] font-semibold text-brand-ink hover:underline">For launchpads</Link>
         </div>
       </div>
     </section>
