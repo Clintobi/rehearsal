@@ -10,6 +10,7 @@ export type Asset = {
   symbol: string;
   name: string;
   company: string; // slug shared by every token on the same company
+  ticker?: string; // US listing symbol, for listed companies
   mint: string;
   decimals: number;
   icon?: string;
@@ -28,7 +29,7 @@ export function xstockAssets(): Asset[] {
     const name = x.name.replace(" xStock", "");
     const live = x.equity && "account" in x.equity && x.equity.account && x.equity.shard === 1;
     return {
-      kind: "xstock", issuer: "xStocks", symbol: x.symbol, name, company: slug(name),
+      kind: "xstock", issuer: "xStocks", symbol: x.symbol, name, company: slug(name), ticker: x.ticker,
       mint: x.mint, decimals: x.decimals, icon: x.icon,
       pyth: live ? { feed: x.equity!.id, account: feedAccount(x.equity!.id, 1).toBase58(), schedule: x.equity!.schedule, ticker: x.ticker } : undefined,
     };

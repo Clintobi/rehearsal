@@ -1,5 +1,5 @@
 import { Connection } from "@solana/web3.js";
-import type { Asset } from "./assets";
+import { xstockData, type Asset } from "./assets";
 import { quote, USDC, type Quote } from "./jup";
 import { readPrices } from "./pyth";
 import { marketStatus, type MarketStatus } from "./market";
@@ -58,6 +58,11 @@ export async function reference(asset: Asset, conn = rpc()): Promise<Reference |
       market: marketStatus(asset.pyth.schedule),
     };
   }
+  if (asset.kind === "xstock") {
+    // No on-chain Pyth feed for this listing: fall back to the issuer's reference price.
+    const sd = (await xstockData().catch(() => null))?.get(asset.mint);
+    if (sd?.price) return { price: sd.price, source: "xStocks issuer reference price", detail: "Backed Finance's price for the listed share, via Jupiter" };
+  }
   if (asset.mark) {
     return {
       price: asset.mark.price,
@@ -90,9 +95,10 @@ export function judge(r: Omit<Rehearsal, "verdict">): Verdict {
     if (prem < -15) return { level: "warn", headline: `The token trades ${abs}% below the PreStocks mark.${implied}`, reasons: ["A deep discount means sellers are leaving. Find out why before you treat it as a bargain.", ...reasons] };
     return { level: reasons.length ? "warn" : "good", headline: `Within ${abs}% of the PreStocks mark. Fair against the last valuation.`, reasons };
   }
+  const of = r.reference?.source.startsWith("Pyth") ? "the Pyth price of the real stock" : "the issuer's price of the real stock";
   const line = buy
-    ? `You'd pay ${abs}% ${prem >= 0 ? "above" : "below"} the Pyth price of the real stock`
-    : `You'd receive ${abs}% ${prem >= 0 ? "less" : "more"} than the Pyth price of the real stock`;
+    ? `You'd pay ${abs}% ${prem >= 0 ? "above" : "below"} ${of}`
+    : `You'd receive ${abs}% ${prem >= 0 ? "less" : "more"} than ${of}`;
   if (prem > 3) return { level: "bad", headline: `${line}. Don't market-${r.side} this size right now.`, reasons: ["xStocks are backed 1:1, so this gap is money handed to the pool.", ...reasons] };
   if (prem > 0.75) return { level: "warn", headline: `${line}. Try a smaller size or wait for US hours.`, reasons };
   return { level: reasons.length > 1 ? "warn" : "good", headline: `${line}. Fair price.`, reasons };

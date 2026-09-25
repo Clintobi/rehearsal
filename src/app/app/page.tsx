@@ -9,9 +9,9 @@ import type { Rehearsal } from "@/lib/rehearse";
 import { useAssets, useBoard, type AssetOpt } from "@/lib/hooks";
 import { compactUsd, gapTone, pct, price, shortAddr, usd, type Tone } from "@/lib/format";
 import { Button, cx, InfoTip, Pill, Segmented, Skeleton, TokenIcon, toneText } from "@/components/ui";
+import type { Passport as PassportData } from "@/lib/agent";
+import Passport, { fairLabel, type Certificate } from "@/components/Passport";
 
-const GUARD_LIVE = process.env.NEXT_PUBLIC_GUARD_LIVE === "1";
-const GUARD_ID = process.env.NEXT_PUBLIC_GUARD_PROGRAM_ID ?? "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE";
 const b64ToBytes = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 const bytesToB64 = (u: Uint8Array) => btoa(Array.from(u, (c) => String.fromCharCode(c)).join(""));
 
@@ -29,7 +29,11 @@ function Trade() {
   const [result, setResult] = useState<Rehearsal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pp, setPp] = useState<PassportData | null>(null);
+  const [ppLoading, setPpLoading] = useState(false);
+  const [cert, setCert] = useState<Certificate | null>(null);
   const req = useRef(0);
+  const ppReq = useRef(0);
 
   // Pick the token from ?t=SYMBOL, else NVDAx.
   useEffect(() => {
@@ -65,6 +69,26 @@ function Trade() {
     return () => { clearTimeout(t); clearInterval(every); };
   }, [mint, usdAmount, side]);
 
+  // Passport: what you hold, price evidence, exit depth. Slower than the quote, so it loads alongside.
+  const symbol = asset?.symbol;
+  useEffect(() => {
+    if (!symbol || !(usdAmount > 0)) return;
+    const id = ++ppReq.current;
+    const run = async () => {
+      setPpLoading(true);
+      try {
+        const j = await fetch(`/api/v1/passport?symbol=${symbol}&usd=${usdAmount}&side=${side}`).then((x) => x.json());
+        if (id === ppReq.current && !j.error) setPp(j);
+      } catch { /* the verdict still works without it */ } finally {
+        if (id === ppReq.current) setPpLoading(false);
+      }
+    };
+    const t = setTimeout(run, 600);
+    const every = setInterval(run, 45_000);
+    return () => { clearTimeout(t); clearInterval(every); };
+  }, [symbol, usdAmount, side]);
+  const ppNow = pp && pp.symbol === symbol && pp.side === side ? pp : null;
+
   const others = useMemo(() => (board?.rows ?? []).filter((r) => r.premiumPct != null && r.mint !== mint).slice(0, 6), [board, mint]);
 
   return (
@@ -72,7 +96,7 @@ function Trade() {
       <section aria-label="Order" className="h-fit rounded-[10px] border border-line bg-panel p-5 sm:p-6 lg:sticky lg:top-24">
         <h1 className="text-[22px] font-semibold tracking-tight">Trade</h1>
         <div className="mt-5 space-y-5">
-          <TokenPicker assets={assets} value={mint} onChange={(m) => { setMint(m); setResult(null); }} board={board?.rows} />
+          <TokenPicker assets={assets} value={mint} onChange={(m) => { setMint(m); setResult(null); setPp(null); setCert(null); }} board={board?.rows} />
           <Segmented label="Side" value={side} onChange={setSide} options={[{ value: "buy", label: "Buy" }, { value: "sell", label: "Sell" }]} />
           <div>
             <label htmlFor="amount" className="text-[13px] font-medium text-muted">{side === "buy" ? "Amount to spend" : "Amount to sell"}</label>
@@ -97,7 +121,8 @@ function Trade() {
       </section>
 
       <div className="min-w-0 space-y-6">
-        <Verdict result={result} asset={asset} loading={loading && !result} error={error} stale={loading && !!result} />
+        <Verdict result={result} asset={asset} loading={loading && !result} error={error} stale={loading && !!result} pp={ppNow} onCert={setCert} />
+        <Passport p={ppNow} loading={ppLoading} cert={cert && cert.symbol === symbol ? cert : null} />
         {others.length > 0 && (
           <section aria-labelledby="others">
             <div className="flex items-baseline justify-between">
@@ -202,13 +227,25 @@ function TokenPicker({ assets, value, onChange, board }: { assets: AssetOpt[] | 
 
 // ---------------------------------------------------------------- verdict
 
-function headline(r: Rehearsal): { tone: Tone; label: string; title: string; sub?: string } {
-  const p = r.premiumPct;
+type Fair = { price: number; gapPct: number | null; overpayUsd: number | null; label: string; source: string };
+
+// The price this trade is judged against: the passport's evidence when it has loaded (Pyth in the
+// US session, the 24/7 perp outside it), else the quote's own reference.
+function fairFor(r: Rehearsal, pp: PassportData | null): Fair | null {
+  if (pp && pp.evidence.price != null && pp.fill.gapPct != null) {
+    return { price: pp.evidence.price, gapPct: pp.fill.gapPct, overpayUsd: pp.fill.overpayUsd, label: fairLabel(pp.evidence.level), source: pp.evidence.source };
+  }
+  if (!r.reference || r.premiumPct == null) return null;
+  return { price: r.reference.price, gapPct: r.premiumPct, overpayUsd: r.overpayUsd, label: r.asset.kind === "prestock" ? "Valuation" : "Real price", source: r.reference.source };
+}
+
+function headline(r: Rehearsal, f: Fair | null): { tone: Tone; label: string; title: string; sub?: string } {
+  const p = f?.gapPct ?? null;
   const buy = r.side === "buy";
   const kind = r.asset.kind;
-  if (p == null || r.overpayUsd == null) return { tone: "neutral", label: "No reference", title: `${price(r.fillPrice)} per share`, sub: "There's no independent price for this token yet, so check the size of your order carefully." };
+  if (p == null || f?.overpayUsd == null) return { tone: "neutral", label: "No reference", title: `${price(r.fillPrice)} per share`, sub: "There's no independent price for this token right now, so check the size of your order carefully." };
   const tone = gapTone(p, kind);
-  const diff = Math.abs(r.overpayUsd);
+  const diff = Math.abs(f.overpayUsd);
   if (kind === "prestock") {
     const above = p >= 0;
     return {
@@ -218,34 +255,37 @@ function headline(r: Rehearsal): { tone: Tone; label: string; title: string; sub
       sub: r.impliedValuation && r.markValuation ? `At this price you're valuing ${r.asset.name} at ${compactUsd(r.impliedValuation)}. PreStocks marks it at ${compactUsd(r.markValuation)}.` : undefined,
     };
   }
-  if (Math.abs(p) < 0.15 || diff < 0.5) return { tone: "good", label: "Fair price", title: "You're getting the real price", sub: `Within ${usd(Math.max(diff, 0.01))} of ${r.asset.name}'s live price.` };
-  if (p < 0) return { tone: "good", label: "Better than fair", title: buy ? `${usd(diff)} cheaper than the real stock` : `${usd(diff)} more than the real stock`, sub: `You're ${buy ? "paying less" : "getting more"} than ${r.asset.name}'s live price.` };
+  const what = f.label === "24/7 price" ? `${r.asset.name}'s 24/7 price` : `${r.asset.name}'s live price`;
+  if (Math.abs(p) < 0.15 || diff < 0.5) return { tone: "good", label: "Fair price", title: "You're getting the real price", sub: `Within ${usd(Math.max(diff, 0.01))} of ${what}.` };
+  if (p < 0) return { tone: "good", label: "Better than fair", title: buy ? `${usd(diff)} cheaper than the real stock` : `${usd(diff)} more than the real stock`, sub: `You're ${buy ? "paying less" : "getting more"} than ${what}.` };
   return {
     tone,
     label: tone === "bad" ? "Overpriced" : tone === "warn" ? "A little pricey" : "Fair price",
     title: buy ? `You'd pay ${usd(diff)} more than it's worth` : `You'd get ${usd(diff)} less than it's worth`,
-    sub: `${pct(p)} vs ${r.asset.name}'s live price.`,
+    sub: `${pct(p)} vs ${what}.`,
   };
 }
 
-function notes(r: Rehearsal): string[] {
-  const out: string[] = [];
-  const m = r.reference?.market;
-  if (m && !m.open && r.asset.kind === "xstock") {
-    out.push(
-      m.label.startsWith("Pre-market") ? "It's pre-market, so the real price comes from early trading. Prices can move at the 9:30 open."
-      : m.label.startsWith("After hours") ? "It's after hours, so the real price comes from late trading. Prices can move by the next open."
-      : m.label.startsWith("Weekend") ? "The US market is closed for the weekend, so the real price is Friday's. Prices can jump on Monday."
-      : m.label.includes("holiday") ? "The US market is closed for a holiday, so the real price is from the last trading day."
-      : "The US market is closed, so the real price is from the last trade. Prices can jump at the open.",
-    );
+function notes(r: Rehearsal, pp: PassportData | null): { text: string; href?: string; link?: string }[] {
+  const out: { text: string; href?: string; link?: string }[] = [];
+  if (pp && pp.kind === "xstock" && pp.market.regular === false) {
+    const t = pp.market.session?.period;
+    const when = t === "overnight" ? "overnight" : t === "extended" ? "outside regular hours" : "closed";
+    out.push(pp.evidence.level === "perp"
+      ? { text: `The US market is ${when === "closed" ? "closed" : when}, so this is judged against the ${pp.symbol.replace(/x$/, "")} perpetual, which trades around the clock. It tracks the stock better than the last close does.` }
+      : { text: `The US market is ${when === "closed" ? "closed" : when} and there's no 24/7 price for this stock, so the last price may be hours old.` });
+    if (pp.decision.action === "wait" && (pp.fill.gapPct ?? 0) > 0.5) out.push({ text: `This fill is ${pp.fill.gapPct!.toFixed(2)}% over the 24/7 price. You can queue for the opening cross instead and fill at the first real price.`, href: "/app/orders", link: "Queue for the open" });
+  } else if (!pp) {
+    const m = r.reference?.market;
+    if (m && !m.open && r.asset.kind === "xstock") out.push({ text: "The US market is closed, so prices can move when trading resumes." });
   }
-  if ((r.sizeImpactPct ?? 0) > 1) out.push(`Your order size moves the price ${r.sizeImpactPct!.toFixed(1)}%. A smaller order would fill better.`);
-  if ((r.roundTripCostPct ?? 0) > 2) out.push(`Selling straight back would lose ${r.roundTripCostPct!.toFixed(1)}%. Liquidity is thin.`);
+  if (pp?.market.nasdaqHalt || pp?.market.session?.issuerHalted) out.push({ text: `${pp.name} is halted. Pool prices during a halt aren't anchored to anything.` });
+  if ((r.sizeImpactPct ?? 0) > 1) out.push({ text: `Your order size moves the price ${r.sizeImpactPct!.toFixed(1)}%. A smaller order would fill better.` });
+  if ((r.roundTripCostPct ?? 0) > 2) out.push({ text: `Selling straight back would lose ${r.roundTripCostPct!.toFixed(1)}%. Liquidity is thin.` });
   return out;
 }
 
-function Verdict({ result: r, asset, loading, error, stale }: { result: Rehearsal | null; asset?: AssetOpt; loading: boolean; error: string | null; stale: boolean }) {
+function Verdict({ result: r, asset, loading, error, stale, pp, onCert }: { result: Rehearsal | null; asset?: AssetOpt; loading: boolean; error: string | null; stale: boolean; pp: PassportData | null; onCert: (c: Certificate) => void }) {
   if (error && !r) {
     return (
       <section className="rounded-[10px] border border-line bg-panel p-6">
@@ -265,8 +305,10 @@ function Verdict({ result: r, asset, loading, error, stale }: { result: Rehearsa
       </section>
     );
   }
-  const h = headline(r);
-  const ref = r.reference;
+  const ppHere = pp && pp.symbol === r.asset.symbol && pp.side === r.side ? pp : null;
+  const f = fairFor(r, ppHere);
+  const h = headline(r, f);
+  const ns = notes(r, ppHere);
   return (
     <section aria-live="polite" className={cx("rounded-[10px] border border-line bg-panel p-5 transition-opacity duration-200 sm:p-7", stale && "opacity-70")}>
       <div className="flex items-center gap-3">
@@ -277,28 +319,27 @@ function Verdict({ result: r, asset, loading, error, stale }: { result: Rehearsa
       <h2 key={h.title} className="settle mt-5 text-[26px] font-semibold leading-tight tracking-tight sm:text-[32px]">{h.title}</h2>
       {h.sub && <p className="mt-2 max-w-[60ch] text-[15px] text-ink-2">{h.sub}</p>}
 
-      {ref && <PriceScale fill={r.fillPrice} fair={ref.price} tone={h.tone} fairLabel={r.asset.kind === "prestock" ? "Valuation" : "Real price"} side={r.side} />}
+      {f && <PriceScale fill={r.fillPrice} fair={f.price} tone={h.tone} fairLabel={f.label} side={r.side} />}
 
       <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
         <Stat label={r.side === "buy" ? "You pay per share" : "You get per share"} value={price(r.fillPrice)} />
-        <Stat label={r.asset.kind === "prestock" ? "PreStocks valuation" : "Real price"} value={ref ? price(ref.price) : "–"}
-          tip={r.asset.kind === "prestock" ? "PreStocks' mark for the private company, based on its latest funding data." : "Live price of the actual share, read on-chain from Pyth."} />
+        <Stat label={f?.label ?? "Real price"} value={f ? price(f.price) : "–"} tip={f ? `From ${f.source}.` : undefined} />
         <Stat label="You receive" value={`${r.tokens.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${r.asset.symbol}`} />
       </dl>
 
-      {notes(r).length > 0 && (
+      {ns.length > 0 && (
         <ul className="mt-6 space-y-2">
-          {notes(r).map((n) => (
-            <li key={n} className="flex gap-2 text-[14px] text-ink-2">
+          {ns.map((n) => (
+            <li key={n.text} className="flex gap-2 text-[14px] text-ink-2">
               <svg className="mt-0.5 shrink-0 text-warn" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.25" /><path d="M8 5v3.5M8 11v.2" /></svg>
-              {n}
+              <span>{n.text}{n.href && <> <Link href={n.href} className="font-medium text-brand-ink hover:underline">{n.link}</Link></>}</span>
             </li>
           ))}
         </ul>
       )}
 
       <Details r={r} />
-      <Execute r={r} tone={h.tone} />
+      <Execute r={r} tone={h.tone} pp={ppHere} onCert={onCert} />
     </section>
   );
 }
@@ -368,33 +409,44 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return <div className="flex justify-between gap-4 border-t border-line pt-2"><dt className="text-muted">{k}</dt><dd className="num text-right text-ink">{v}</dd></div>;
 }
 
-function Execute({ r, tone }: { r: Rehearsal; tone: Tone }) {
+function Execute({ r, tone, pp, onCert }: { r: Rehearsal; tone: Tone; pp: PassportData | null; onCert: (c: Certificate) => void }) {
   const { publicKey, signTransaction, connected } = useWallet();
   const { setVisible } = useWalletModal();
-  const [guardOn, setGuardOn] = useState(GUARD_LIVE);
+  const available = !!pp?.protect.available;
+  const [guardOn, setGuardOn] = useState(true);
+  const protect = guardOn && available;
   const [state, setState] = useState<{ s: "idle" | "building" | "signing" | "sending" | "done" | "error"; msg?: string; sig?: string }>({ s: "idle" });
   const [age, setAge] = useState(0);
   useEffect(() => { const t = setInterval(() => setAge(Math.round((Date.now() - r.at) / 1000)), 1000); return () => clearInterval(t); }, [r.at]);
   const stale = age > 30;
   const busy = ["building", "signing", "sending"].includes(state.s);
   const verb = r.side === "buy" ? "Buy" : "Sell";
+  const limit = pp ? (pp.protect.maxGapBps / 100).toFixed(2) : null;
 
   async function go() {
     if (!publicKey || !signTransaction) return;
     try {
       setState({ s: "building" });
-      const body = JSON.stringify({ quote: r.quote, userPublicKey: publicKey.toBase58(), toleranceBps: r.asset.kind === "prestock" ? 500 : 100 });
-      const b = await fetch(guardOn ? "/api/guarded-swap" : "/api/swap", { method: "POST", headers: { "content-type": "application/json" }, body }).then((x) => x.json());
+      const b = protect
+        ? await fetch("/api/v1/swap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbol: r.asset.symbol, usd: r.usd, side: r.side, wallet: publicKey.toBase58() }) }).then((x) => x.json())
+        : await fetch("/api/swap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ quote: r.quote, userPublicKey: publicKey.toBase58() }) }).then((x) => x.json()).then((j) => ({ ...j, transaction: j.swapTransaction }));
       if (b.error) throw new Error(b.error);
       setState({ s: "signing" });
-      const signed = await signTransaction(VersionedTransaction.deserialize(b64ToBytes(b.swapTransaction)));
+      const signed = await signTransaction(VersionedTransaction.deserialize(b64ToBytes(b.transaction)));
       setState({ s: "sending" });
       const s = await fetch("/api/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signed: bytesToB64(signed.serialize()), lastValidBlockHeight: b.lastValidBlockHeight }) }).then((x) => x.json());
       if (s.error) {
-        const blocked = /0x1770|"Custom":6000/.test(s.error);
-        throw Object.assign(new Error(blocked ? "Stopped: the fill came in worse than fair, so nothing was traded." : s.error), { sig: s.signature });
+        const blocked = /"Custom":6001|0x1771/.test(s.error);
+        throw Object.assign(new Error(blocked ? "Stopped: you'd have received less than your protected minimum, so nothing was traded." : s.error), { sig: s.signature });
       }
       setState({ s: "done", sig: s.signature });
+      if (protect) {
+        for (let i = 0; i < 6; i++) {
+          const c = await fetch(`/api/v1/certificate?sig=${s.signature}`).then((x) => x.json()).catch(() => null);
+          if (c && !c.error) { onCert(c); break; }
+          await new Promise((res) => setTimeout(res, 1500));
+        }
+      }
     } catch (e) {
       setState({ s: "error", msg: e instanceof Error ? e.message : String(e), sig: (e as { sig?: string }).sig });
     }
@@ -402,14 +454,14 @@ function Execute({ r, tone }: { r: Rehearsal; tone: Tone }) {
 
   return (
     <div className="mt-6 space-y-4">
-      <label className={cx("flex items-start gap-3 rounded-lg border border-line p-4", !GUARD_LIVE && "opacity-80")}>
-        <input type="checkbox" checked={guardOn} disabled={!GUARD_LIVE} onChange={(e) => setGuardOn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--brand)]" />
+      <label className={cx("flex items-start gap-3 rounded-lg border border-line p-4", !available && "opacity-80")}>
+        <input type="checkbox" checked={protect} disabled={!available} onChange={(e) => setGuardOn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--brand)]" />
         <span className="text-[14px]">
           <span className="font-semibold text-ink">Price protection</span>
           <span className="block text-muted">
-            {GUARD_LIVE
-              ? `Cancels the trade automatically if the fill comes in more than ${r.asset.kind === "prestock" ? "5%" : "1%"} worse than fair.`
-              : <>Coming to mainnet soon. <a className="text-brand-ink hover:underline" href={`https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet`} target="_blank" rel="noreferrer">Live on devnet</a>.</>}
+            {!pp ? "Checking the price rules for this stock…"
+              : available ? `If you'd ${r.side === "buy" ? "pay" : "get"} more than ${limit}% ${r.side === "buy" ? "over" : "under"} fair (${pp.evidence.source}), the trade cancels on-chain.`
+              : `Off right now: ${pp.evidence.rule.toLowerCase()}.`}
           </span>
         </span>
       </label>
@@ -426,7 +478,7 @@ function Execute({ r, tone }: { r: Rehearsal; tone: Tone }) {
 
       {state.s === "done" && state.sig && (
         <p className="flex items-center justify-between rounded-lg bg-good-soft px-4 py-3 text-[14px] text-good">
-          <span className="font-semibold">Order filled</span>
+          <span className="font-semibold">{protect ? "Filled inside your protected price" : "Order filled"}</span>
           <a className="font-medium underline" href={`https://solscan.io/tx/${state.sig}`} target="_blank" rel="noreferrer">View transaction</a>
         </p>
       )}

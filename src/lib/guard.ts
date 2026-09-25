@@ -338,7 +338,7 @@ export type JupSwapIxs = {
   cleanupInstruction?: JupIx | null; otherInstructions?: JupIx[]; addressLookupTableAddresses: string[];
 };
 
-const toIx = (i: JupIx) => new TransactionInstruction({
+export const toIx = (i: JupIx) => new TransactionInstruction({
   programId: new PublicKey(i.programId),
   keys: i.accounts.map((a) => ({ pubkey: new PublicKey(a.pubkey), isSigner: a.isSigner, isWritable: a.isWritable })),
   data: Buffer.from(i.data, "base64"),

@@ -1,0 +1,12 @@
+PASS  1. protected NVDAx buy ($300) fills
+      fair $226.291 (Lighter NVDA perp mark), limit 50 bps, floor 1.31913095 NVDAx; received 1.32633949 NVDAx at $226.186434 (-0.046% vs fair), certificate verified=true
+PASS  2. floor above what the route can deliver reverts on-chain
+      ok=false, failed in JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 with custom error 6001 (Jupiter SlippageToleranceExceeded is 6001)
+PASS  3. protected NVDAx sell ($100) fills
+      floor $99.58 USDC, received $100.000568 at $226.111314, verified=true
+PASS  4. protected PreStocks buy (ANDURIL, $60) fills after the 1% fee
+      mark $156.11, limit 807 bps, floor 0.355652, received 0.35609649 (7.935% vs mark), verified=true
+PASS  5. a limit tighter than the market is refused before anything is signed
+      Refused: the best route right now is 32.43% worse than fair value (PreStocks mark), past your 1.00% limit. A swap built now would revert.
+
+5/5 passed
