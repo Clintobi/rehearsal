@@ -26,6 +26,16 @@ use state::*;
 
 declare_id!("TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE");
 
+#[cfg(not(feature = "no-entrypoint"))]
+solana_security_txt::security_txt! {
+    name: "Rehearsal Guard",
+    project_url: "https://rehearsal-stocklana.vercel.app",
+    contacts: "link:https://github.com/Clintobi/rehearsal/security/advisories/new",
+    policy: "https://github.com/Clintobi/rehearsal/blob/main/SECURITY.md",
+    preferred_languages: "en",
+    source_code: "https://github.com/Clintobi/rehearsal/tree/main/onchain"
+}
+
 pub const MAX_TOLERANCE_BPS: u16 = 5_000;
 /// A breaker older than this can't vouch for the current state; crank it in the same tx.
 pub const BREAKER_MAX_STALENESS_SECS: i64 = 60;

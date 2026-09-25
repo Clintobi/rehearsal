@@ -1459,6 +1459,7 @@ dependencies = [
  "hex",
  "serde_json",
  "solana-bn254",
+ "solana-security-txt",
  "solana-sha256-hasher",
 ]
 
