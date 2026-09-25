@@ -4,11 +4,11 @@ import Link from "next/link";
 
 const REPORT_URL = process.env.NEXT_PUBLIC_REPORT_URL ?? "https://gist.githubusercontent.com/Clintobi/7b15feb84f4634fa5ef05eec7e248f9c/raw/report.json";
 
-type Summary = { fills: number; graded: number; volume_usd: number; median_gap_bps: number | null; p90_gap_bps: number | null; within_25bps: number | null; within_100bps: number | null; median_markout_5m_bps: number | null };
+type Summary = { fills: number; graded: number; enough?: boolean; volume_usd: number; median_gap_bps: number | null; p90_gap_bps: number | null; within_25bps: number | null; within_100bps: number | null; median_markout_5m_bps: number | null };
 type Row = Summary & { key: string };
 type Worst = { sig: string; symbol: string; side: string; usd: number; fill: number; ref: number; ref_source: string; gap_bps: number; venue: string; router: string; t: number };
 type Report = {
-  generated_at: number; started_at: number;
+  generated_at: number; started_at: number; min_group?: number; min_grade_usd?: number;
   method: Record<string, string>;
   coverage: { txs_seen: number; txs_sampled: number; fills: number };
   overall: { xstocks: Summary; prestocks: Summary };
@@ -20,6 +20,7 @@ const bps = (n: number | null | undefined) => (n == null ? "–" : `${n > 0 ? "+
 const share = (n: number | null | undefined) => (n == null ? "–" : `${Math.round(n * 100)}%`);
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 const tone = (n: number | null | undefined) => (n == null ? "text-mute" : n > 100 ? "text-bad" : n > 25 ? "text-warn" : "text-good");
+const ok = (r: Summary) => r.enough ?? r.graded >= 10;
 const ago = (t: number) => { const m = Math.round((Date.now() / 1000 - t) / 60); return m < 60 ? `${m} min ago` : `${(m / 60).toFixed(1)} h ago`; };
 
 function Table({ title, note, rows, keyLabel }: { title: string; note?: string; rows: Row[]; keyLabel: string }) {
@@ -42,7 +43,7 @@ function Table({ title, note, rows, keyLabel }: { title: string; note?: string; 
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {[...rows].sort((a, b) => Number(ok(b)) - Number(ok(a))).map((r) => ok(r) ? (
               <tr key={r.key} className="border-b border-line/70 last:border-0">
                 <td className="px-4 py-2.5 font-medium">{r.key}</td>
                 <td className="num px-4 py-2.5 text-right">{r.graded}<span className="text-mute"> / {r.fills}</span></td>
@@ -51,6 +52,13 @@ function Table({ title, note, rows, keyLabel }: { title: string; note?: string; 
                 <td className={`num px-4 py-2.5 text-right ${tone(r.p90_gap_bps)}`}>{bps(r.p90_gap_bps)}</td>
                 <td className="num px-4 py-2.5 text-right">{share(r.within_25bps)}</td>
                 <td className="num px-4 py-2.5 text-right">{bps(r.median_markout_5m_bps)}</td>
+              </tr>
+            ) : (
+              <tr key={r.key} className="border-b border-line/70 text-mute last:border-0">
+                <td className="px-4 py-2.5">{r.key}</td>
+                <td className="num px-4 py-2.5 text-right">{r.graded}<span> / {r.fills}</span></td>
+                <td className="num px-4 py-2.5 text-right">{usd(r.volume_usd)}</td>
+                <td colSpan={4} className="px-4 py-2.5 text-right text-xs">Not enough graded trades yet</td>
               </tr>
             ))}
           </tbody>
@@ -134,19 +142,27 @@ export default function ReportPage() {
         )}
       </section>
 
+      <section className="mb-8 grid gap-3 rounded-2xl border border-line bg-card p-5 text-sm sm:grid-cols-2">
+        <div><b>Gap.</b> <span className="text-mute">How much worse than the real price a trader paid, in basis points (bps). 100 bps = 1%. +10 means they paid 0.1% over the real price. Negative means they got a better price than the reference.</span></div>
+        <div><b>Reference (the real price).</b> <span className="text-mute">For US stock tokens, Pyth&apos;s live price of the actual share, read on-chain. Where Pyth has no feed on Solana, the issuer&apos;s reference price, which is weaker. For PreStocks, the issuer&apos;s mark (their valuation of the private company).</span></div>
+        <div><b>Median / worst 10%.</b> <span className="text-mute">The typical trade, and how bad the unluckiest one in ten was.</span></div>
+        <div><b>5-min markout.</b> <span className="text-mute">Where the real price went 5 minutes after the trade, from the trader&apos;s side. Negative means the price moved against them right after, a sign faster traders picked them off.</span></div>
+      </section>
+
       {err && <p className="text-bad">{err}</p>}
       {!r && !err && <p className="text-mute">Loading the report…</p>}
 
       {r && (
         <>
           <div className="grid gap-3 sm:grid-cols-2">
-            {([["xStocks (US equities)", r.overall.xstocks, "vs Pyth, or the issuer reference where no Pyth feed is on-chain"], ["PreStocks (pre-IPO)", r.overall.prestocks, "vs the PreStocks mark"]] as const).map(([name, s, sub]) => (
+            {([["xStocks (US equities)", r.overall.xstocks, "vs Pyth, or the issuer reference where no Pyth feed is on-chain"], ["PreStocks (pre-IPO)", r.overall.prestocks, "vs the PreStocks mark. This mostly measures how far the market trades from PreStocks' own valuation, not fill quality"]] as const).map(([name, s, sub]) => (
               <div key={name} className="rounded-2xl border border-line bg-card p-5">
                 <div className="text-sm text-mute">{name}</div>
                 <div className="mt-2 flex items-baseline gap-2">
-                  <span className={`num text-4xl font-semibold ${tone(s.median_gap_bps)}`}>{bps(s.median_gap_bps)}</span>
+                  <span className={`num text-4xl font-semibold ${ok(s) ? tone(s.median_gap_bps) : "text-mute"}`}>{bps(s.median_gap_bps)}</span>
                   <span className="text-sm text-mute">bps median gap, {sub}</span>
                 </div>
+                {!ok(s) && <p className="mt-2 rounded-lg bg-warn-bg px-2.5 py-1.5 text-xs text-warn">Only {s.graded} graded trades so far. Too few to read; this fills in as the recorder runs.</p>}
                 <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
                   <div><div className="text-xs text-mute">Fills graded</div><div className="num font-semibold">{s.graded.toLocaleString()}</div></div>
                   <div><div className="text-xs text-mute">Worst 10%</div><div className={`num font-semibold ${tone(s.p90_gap_bps)}`}>{bps(s.p90_gap_bps)} bps</div></div>

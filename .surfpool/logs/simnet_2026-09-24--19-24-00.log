@@ -158,3 +158,4 @@
 [2026-09-24--19-25-26 INFO surfpool::cli::simnet] Time travel to 2026-09-24 18:32:20 successful (epoch 1041 / slot 450110150)
 [2026-09-24--19-25-27 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 5: custom program error: 0x1782
 [2026-09-24--19-25-27 INFO parity_ws::io] Accepted a new tcp connection from 127.0.0.1:51552.
+[2026-09-24--19-34-00 ERROR surfpool::cli::simnet] Internal error: "Storage error: Query failed for table 'streamed_accounts' in 'SQLite' database: Failed to get all key-value pairs: no such table: streamed_accounts"

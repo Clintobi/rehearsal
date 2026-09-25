@@ -19,7 +19,11 @@ import { mintInfos, type MintInfo } from "../src/lib/mintinfo";
 
 const RPC = process.env.SOLANA_RPC ?? "https://api.mainnet-beta.solana.com";
 const SAMPLE_PER_MINT = Number(process.env.SAMPLE_PER_MINT ?? 6); // fills graded per mint per 30s cycle
-const GIST_ID = process.env.REPORT_GIST_ID; // when set, report.json is pushed to this gist
+const GIST_ID = process.env.REPORT_GIST_ID;
+// Below this size, fees, rent and rounding swamp the price, so the fill is recorded but not graded.
+const MIN_GRADE_USD = Number(process.env.MIN_GRADE_USD ?? 10);
+// Groups smaller than this are published but flagged as too small to read.
+const MIN_GROUP = 10; // when set, report.json is pushed to this gist
 const conn = new Connection(RPC, "confirmed");
 
 mkdirSync("data", { recursive: true });
@@ -186,7 +190,7 @@ function parseFill(tx: ParsedTransactionWithMeta, t: Tracked) {
   const refAge = ref ? tx.blockTime - ref.ts : null;
   const maxAge = refSource === "pyth" ? 120 : refSource === "xstocks-ref" ? 300 : Infinity;
   // SOL legs carry rent refunds and tips; below $100 that noise swamps the price.
-  const reliableQuote = quote !== "SOL" || Math.abs(quoteUsd) >= 100;
+  const reliableQuote = (quote !== "SOL" || Math.abs(quoteUsd) >= 100) && Math.abs(quoteUsd) >= MIN_GRADE_USD;
   let usable = !!ref && (refAge ?? Infinity) <= maxAge && reliableQuote;
   let gap = usable ? (side === "buy" ? fillPrice / ref!.price - 1 : 1 - fillPrice / ref!.price) * 10_000 : null;
   // Multi-leg transactions (several outputs from one input) don't parse to a single fill price.
@@ -250,10 +254,11 @@ function pct(arr: number[], q: number) {
   return s[Math.min(s.length - 1, Math.floor(q * (s.length - 1)))];
 }
 function summarize(rows: { gap_bps: number | null; quote_usd: number; markout_300: number | null }[]) {
-  const g = rows.map((r) => r.gap_bps).filter((x): x is number => x != null);
-  const m = rows.map((r) => r.markout_300).filter((x): x is number => x != null && x > -99999);
+  const gradeable = rows.filter((r) => r.quote_usd >= MIN_GRADE_USD);
+  const g = gradeable.map((r) => r.gap_bps).filter((x): x is number => x != null);
+  const m = gradeable.map((r) => r.markout_300).filter((x): x is number => x != null && x > -99999);
   return {
-    fills: rows.length, graded: g.length, volume_usd: Math.round(rows.reduce((s, r) => s + r.quote_usd, 0)),
+    fills: rows.length, graded: g.length, enough: g.length >= MIN_GROUP, volume_usd: Math.round(rows.reduce((s, r) => s + r.quote_usd, 0)),
     median_gap_bps: pct(g, 0.5), p90_gap_bps: pct(g, 0.9),
     within_25bps: g.length ? g.filter((x) => x <= 25).length / g.length : null,
     within_100bps: g.length ? g.filter((x) => x <= 100).length / g.length : null,
@@ -277,11 +282,11 @@ function report() {
   const worst = all.filter((r) => r.gap_bps != null && r.quote_usd >= 50).sort((a, b) => b.gap_bps! - a.gap_bps!).slice(0, 12)
     .map((r) => ({ sig: r.sig, symbol: r.symbol, side: r.side, usd: Math.round(r.quote_usd), fill: r.fill_price, ref: r.ref_price, ref_source: r.ref_source, gap_bps: Math.round(r.gap_bps!), venue: r.venue, router: r.router, t: r.block_time }));
   const out = {
-    generated_at: now(), started_at: started,
+    generated_at: now(), started_at: started, min_group: MIN_GROUP, min_grade_usd: MIN_GRADE_USD,
     method: {
       sampling: `Up to ${SAMPLE_PER_MINT} successful transactions per token every 30s, chosen at random from every transaction touching the mint.`,
       reference: "xStocks with an on-chain Pyth feed: Pyth Equity.US price account at the fill's block time (≤120s old). Other xStocks: the issuer's reference price via Jupiter (≤5 min old), a weaker reference. PreStocks: issuer mark at the fill's block time.",
-    exclusions: "SOL-paid fills under $100 (rent refunds and tips distort them) and multi-leg transactions more than 30% from the reference are recorded but not graded.",
+    exclusions: `Fills under $${10} (fees and rounding swamp the price), SOL-paid fills under $100 (rent refunds and tips distort them) and multi-leg transactions more than 30% from the reference are recorded but not graded. Groups with fewer than ${10} graded fills are shown as too small to read.`,
       gap: "Positive = worse than the reference for the trader (buy: fill/ref − 1, sell: 1 − fill/ref). Fill price is net of Token-2022 transfer fees and uses the scaled-UI multiplier.",
       markout: "Reference price 5 minutes after the fill vs the fill price, from the trader's side.",
     },
