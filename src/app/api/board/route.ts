@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { allAssets, type Asset } from "@/lib/assets";
+import { allAssets, xstockData, type Asset } from "@/lib/assets";
 import { quote, USDC } from "@/lib/jup";
 import { readPrices } from "@/lib/pyth";
 import { marketStatus } from "@/lib/market";
@@ -35,10 +35,13 @@ export async function GET() {
   ]);
   const px = new Map(pythAssets.map((a, i) => [a.mint, prices[i]]));
 
+  const sd = await xstockData().catch(() => new Map<string, { price: number }>());
   const rows = await pool(assets, 4, async (a): Promise<BoardRow> => {
     const p = px.get(a.mint);
-    const refPrice = a.pyth ? p?.price ?? null : a.mark ? a.mark.price : null;
-    const refSource = a.pyth ? "Pyth" : a.mark ? "PreStocks mark" : null;
+    // xStocks without an on-chain Pyth feed fall back to the issuer's reference price.
+    const issuer = !a.pyth && a.kind === "xstock" ? sd.get(a.mint)?.price ?? null : null;
+    const refPrice = a.pyth ? p?.price ?? null : a.mark ? a.mark.price : issuer;
+    const refSource = a.pyth ? "Pyth" : a.mark ? "PreStocks mark" : issuer ? "Issuer" : null;
     const q = await quote(USDC, a.mint, BigInt(PROBE_USD * 1e6));
     const base = { symbol: a.symbol, name: a.name, mint: a.mint, kind: a.kind, icon: a.icon, refPrice, refSource,
       marketOpen: a.pyth ? marketStatus(a.pyth.schedule).open : null };

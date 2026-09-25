@@ -1,523 +1,281 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { VersionedTransaction } from "@solana/web3.js";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { Rehearsal } from "@/lib/rehearse";
-import type { BoardRow } from "@/app/api/board/route";
+import { useBoard, useFetch } from "@/lib/hooks";
+import { compactUsd, gapTone, pct, price, usd } from "@/lib/format";
+import { Button, cx, Logo, Pill, Segmented, Skeleton, ThemeToggle, TokenIcon, toneText } from "@/components/ui";
+import Footer from "@/components/Footer";
 
-const WalletMultiButton = dynamic(() => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton), { ssr: false });
+const DEMO = [
+  { symbol: "NVDAx", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", label: "NVIDIA" },
+  { symbol: "OPENAI", mint: "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF", label: "OpenAI" },
+] as const;
 
-type AssetOpt = { symbol: string; name: string; mint: string; kind: "xstock" | "prestock"; icon?: string; ref: string | null };
+const REPORT_URL = process.env.NEXT_PUBLIC_REPORT_URL ?? "https://gist.githubusercontent.com/Clintobi/7b15feb84f4634fa5ef05eec7e248f9c/raw/report.json";
+type ReportLite = { by_size: { key: string; median_gap_bps: number | null; graded: number }[] };
 
-const GUARD_LIVE = process.env.NEXT_PUBLIC_GUARD_LIVE === "1";
-const GUARD_DEVNET = process.env.NEXT_PUBLIC_GUARD_DEVNET === "1";
-const GUARD_ID = process.env.NEXT_PUBLIC_GUARD_PROGRAM_ID ?? "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE";
-const usdFmt = (n: number, d = 2) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: d, maximumFractionDigits: d });
-const pct = (n: number | null | undefined, d = 2) => (n == null ? "–" : `${n > 0 ? "+" : ""}${n.toFixed(d)}%`);
-const b64ToBytes = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
-const bytesToB64 = (u: Uint8Array) => btoa(Array.from(u, (c) => String.fromCharCode(c)).join(""));
-const bil = (v: number) => (v >= 1e12 ? `$${(v / 1e12).toFixed(2)}T` : `$${(v / 1e9).toFixed(0)}B`);
-const short = (s: string) => `${s.slice(0, 4)}…${s.slice(-4)}`;
-
-const tone = {
-  good: "bg-good-bg text-good border-good/20",
-  warn: "bg-warn-bg text-warn border-warn/20",
-  bad: "bg-bad-bg text-bad border-bad/20",
-  unknown: "bg-paper text-mute border-line",
-} as const;
-
-function gapTone(p: number | null, kind: string) {
-  if (p == null) return "text-mute";
-  const a = Math.abs(p);
-  const [w, b] = kind === "prestock" ? [5, 15] : [0.75, 3];
-  return a >= b ? "text-bad" : a >= w ? "text-warn" : "text-good";
-}
-
-export default function Home() {
-  const [assets, setAssets] = useState<AssetOpt[]>([]);
-  const [mint, setMint] = useState("");
-  const [usd, setUsd] = useState("1000");
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [result, setResult] = useState<Rehearsal | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [board, setBoard] = useState<{ rows: BoardRow[]; at: number; probeUsd: number } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/assets").then((r) => r.json()).then((a: AssetOpt[]) => {
-      setAssets(a);
-      const q = new URLSearchParams(location.search).get("t") ?? location.pathname.match(/^\/rehearse\/([^/]+)/)?.[1];
-      setMint((a.find((x) => x.symbol.toLowerCase() === q?.toLowerCase()) ?? a.find((x) => x.symbol === "OPENAI") ?? a[0]).mint);
-    });
-    const load = () => fetch("/api/board").then((r) => r.json()).then(setBoard).catch(() => {});
-    load();
-    const t = setInterval(load, 60_000);
-    return () => clearInterval(t);
-  }, []);
-
-  const asset = assets.find((a) => a.mint === mint);
-
-  const run = useCallback(async (m = mint, s = side) => {
-    if (!m || !(Number(usd) > 0)) return;
-    setLoading(true); setErr(null);
-    try {
-      const r = await fetch(`/api/rehearse?mint=${m}&usd=${Number(usd)}&side=${s}`);
-      const j = await r.json();
-      if (j.error) { setErr(j.error); setResult(null); } else setResult(j);
-    } catch { setErr("Could not reach the quote service"); }
-    setLoading(false);
-  }, [mint, usd, side]);
-
-  const sorted = useMemo(() => [...(board?.rows ?? [])].sort((a, b) => (b.premiumPct == null ? -1 : Math.abs(b.premiumPct)) - (a.premiumPct == null ? -1 : Math.abs(a.premiumPct))), [board]);
-  const worst = sorted[0];
-
+export default function Landing() {
   return (
-    <main className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-      <header className="flex items-center justify-between py-5">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-ink text-[13px] font-bold text-paper">R</div>
-          <span className="text-[17px] font-semibold tracking-tight">Rehearsal</span>
-          <span className="hidden rounded-full border border-line px-2 py-0.5 text-xs text-mute sm:inline">Solana mainnet</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <a href="/report" className="hidden text-sm font-medium text-mute hover:text-ink sm:inline">Execution report</a>
-          <WalletMultiButton />
+    <div className="min-h-dvh bg-bg">
+      <header className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+        <Link href="/" aria-label="Rehearsal home"><Logo /></Link>
+        <nav aria-label="Site" className="hidden items-center gap-1 sm:flex">
+          <Link href="/app/markets" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Markets</Link>
+          <Link href="/report" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Report</Link>
+        </nav>
+        <div className="ml-auto flex items-center gap-2">
+          <ThemeToggle />
+          <Link href="/app" className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-[14px] font-semibold text-on-brand transition-colors hover:bg-brand-hover">Open app</Link>
         </div>
       </header>
 
-      <section className="pt-8 pb-10 sm:pt-14">
-        <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-          Check the price before you buy a tokenized stock.
+      <main>
+        <Hero />
+        <LiveLine />
+        <HowItWorks />
+        <ReportTeaser />
+        <Weekend />
+        <Closing />
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+const cta = "inline-flex h-12 items-center rounded-full px-5 text-[15px] font-semibold transition-colors";
+
+function Hero() {
+  return (
+    <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-10 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-28 lg:pt-20">
+      <div>
+        <h1 className="rise text-[clamp(2.5rem,5.6vw,4.5rem)] font-semibold leading-[1.02] tracking-[-0.035em]">
+          Buy tokenized stocks at the price they&apos;re actually worth.
         </h1>
-        <p className="mt-5 max-w-2xl text-lg text-mute">
-          Tokenized stocks trade 24/7 on thin DEX liquidity. The real stock doesn&apos;t. Rehearsal quotes your exact order on Jupiter and
-          compares the fill with Pyth&apos;s on-chain price of the real share, or the PreStocks mark. You see the gap before you sign.
+        <p className="rise mt-6 max-w-[46ch] text-[18px] leading-relaxed text-ink-2 [animation-delay:90ms]">
+          Rehearsal checks your trade against the real stock price before you sign, and cancels it on-chain if the fill comes in worse.
         </p>
-        {worst?.premiumPct != null && (
-          <p className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-xl border border-line bg-card px-4 py-2.5 text-sm">
-            <span className="text-mute">Biggest gap right now:</span>
-            <b>{worst.name}</b>
-            <span className={`num font-semibold ${gapTone(worst.premiumPct, worst.kind)}`}>{pct(worst.premiumPct, 1)}</span>
-            <span className="text-mute">vs {worst.refSource} on a {usdFmt(board!.probeUsd, 0)} buy</span>
+        <div className="rise mt-9 flex flex-wrap gap-3 [animation-delay:160ms]">
+          <Link href="/app" className={cx(cta, "bg-brand text-on-brand hover:bg-brand-hover")}>Check a trade</Link>
+          <Link href="/report" className={cx(cta, "bg-surface-2 text-ink hover:bg-line")}>See how trades are filling</Link>
+        </div>
+        <p className="rise mt-8 text-[13px] text-muted [animation-delay:220ms]">xStocks and PreStocks on Solana · Prices from Pyth and Jupiter</p>
+      </div>
+      <div className="rise [animation-delay:120ms]"><LivePreview /></div>
+    </section>
+  );
+}
+
+// The hero image is the product itself, running on live data.
+function LivePreview() {
+  const [pick, setPick] = useState<(typeof DEMO)[number]["symbol"]>("OPENAI");
+  const [data, setData] = useState<Record<string, Rehearsal>>({});
+  useEffect(() => {
+    let alive = true;
+    DEMO.forEach((d) =>
+      fetch(`/api/rehearse?mint=${d.mint}&usd=1000&side=buy`).then((r) => r.json())
+        .then((j) => { if (alive && !j.error) setData((m) => ({ ...m, [d.symbol]: j })); })
+        .catch(() => {}));
+    return () => { alive = false; };
+  }, []);
+  const r = data[pick];
+  const p = r?.premiumPct ?? null;
+  const kind = r?.asset.kind ?? (pick === "OPENAI" ? "prestock" : "xstock");
+  const tone = gapTone(p, kind);
+  const over = r?.overpayUsd ?? null;
+  const fair = p != null && Math.abs(p) < 0.25;
+
+  return (
+    <figure className="rounded-[14px] border border-line bg-panel p-5 sm:p-6" aria-label="Live example of a Rehearsal price check">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[13px] font-medium text-muted">Buying $1,000 right now</span>
+        <div className="w-48"><Segmented label="Example stock" value={pick} onChange={setPick} options={DEMO.map((d) => ({ value: d.symbol, label: d.label }))} /></div>
+      </div>
+      {!r ? (
+        <div className="mt-6 space-y-3"><Skeleton className="h-6 w-28 rounded-full" /><Skeleton className="h-10 w-4/5" /><Skeleton className="h-5 w-1/2" /><Skeleton className="mt-6 h-16 w-full" /></div>
+      ) : (
+        <div key={pick} className="settle">
+          <div className="mt-6 flex items-center gap-3">
+            <TokenIcon src={r.asset.icon} symbol={r.asset.symbol} size={36} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[15px] font-semibold">{r.asset.name}</div>
+              <div className="text-[12px] text-muted">{r.asset.symbol} · {kind === "xstock" ? "US stock" : "Pre-IPO"}</div>
+            </div>
+            <Pill tone={fair ? "good" : tone}>{fair ? "Fair price" : kind === "prestock" ? "Above valuation" : tone === "good" ? "Fair price" : "Overpriced"}</Pill>
+          </div>
+          <p className="mt-5 text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
+            {over == null ? `${price(r.fillPrice)} per share` : fair ? "You're getting the real price" : kind === "prestock" ? `${usd(Math.abs(over))} above valuation` : `You'd pay ${usd(Math.abs(over))} more than it's worth`}
           </p>
-        )}
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-        {/* Order form */}
-        <section className="h-fit rounded-2xl border border-line bg-card p-5">
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1 text-sm font-medium">
-            {(["buy", "sell"] as const).map((s) => (
-              <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-2 capitalize transition ${side === s ? "bg-card shadow-sm" : "text-mute hover:text-ink"}`}>{s}</button>
-            ))}
-          </div>
-
-          <label className="mt-5 block text-xs font-medium uppercase tracking-wide text-mute">Token</label>
-          <select value={mint} onChange={(e) => { setMint(e.target.value); setResult(null); }}
-            className="mt-1.5 w-full rounded-xl border border-line bg-card px-3 py-2.5 text-[15px] outline-none focus:border-ink">
-            <optgroup label="PreStocks · pre-IPO">
-              {assets.filter((a) => a.kind === "prestock").map((a) => <option key={a.mint} value={a.mint}>{a.symbol} · {a.name}</option>)}
-            </optgroup>
-            <optgroup label="xStocks · US equities">
-              {assets.filter((a) => a.kind === "xstock").map((a) => <option key={a.mint} value={a.mint}>{a.symbol} · {a.name}{a.ref ? "" : " (no reference feed)"}</option>)}
-            </optgroup>
-          </select>
-          {asset && <p className="mt-1.5 text-xs text-mute">Reference: {asset.ref ?? "none available"}</p>}
-
-          <label className="mt-5 block text-xs font-medium uppercase tracking-wide text-mute">Amount ({side === "buy" ? "USDC to spend" : "USD worth to sell"})</label>
-          <div className="mt-1.5 flex items-center rounded-xl border border-line px-3 focus-within:border-ink">
-            <span className="text-mute">$</span>
-            <input value={usd} onChange={(e) => setUsd(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal"
-              className="num w-full bg-transparent px-2 py-2.5 text-lg outline-none" />
-          </div>
-          <div className="mt-2 flex gap-1.5">
-            {[100, 1000, 10000, 50000].map((v) => (
-              <button key={v} onClick={() => setUsd(String(v))} className="num rounded-lg border border-line px-2.5 py-1 text-xs text-mute hover:border-ink hover:text-ink">
-                {v >= 1000 ? `${v / 1000}k` : v}
-              </button>
-            ))}
-          </div>
-
-          <button onClick={() => run()} disabled={loading || !mint}
-            className="mt-5 w-full rounded-xl bg-ink py-3 text-[15px] font-semibold text-paper transition hover:opacity-90 disabled:opacity-50">
-            {loading ? "Quoting Jupiter and reading Pyth…" : "Rehearse this trade"}
-          </button>
-          <p className="mt-3 text-xs leading-relaxed text-mute">Nothing is signed at this step. The quote is live from Jupiter and the reference is read from Solana.</p>
-        </section>
-
-        {/* Result */}
-        <section>
-          {err && <div className="rounded-2xl border border-bad/20 bg-bad-bg p-5 text-bad">{err}</div>}
-          {!result && !err && (
-            <div className="grid h-full min-h-[320px] place-items-center rounded-2xl border border-dashed border-line p-8 text-center text-mute">
-              <div>
-                <p className="text-lg text-ink">Pick a token and an amount.</p>
-                <p className="mt-1 text-sm">You&apos;ll see your real fill, the fair reference, and what the gap costs you in dollars.</p>
-              </div>
+          <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[10px] border border-line bg-line">
+            <div className="bg-panel p-4">
+              <div className="text-[12px] text-muted">You pay per share</div>
+              <div className="num mt-1 text-[18px] font-semibold">{price(r.fillPrice)}</div>
             </div>
+            <div className="bg-panel p-4">
+              <div className="text-[12px] text-muted">{kind === "prestock" ? "Valuation per share" : "Real price"}</div>
+              <div className="num mt-1 text-[18px] font-semibold">{r.reference ? price(r.reference.price) : "–"}</div>
+            </div>
+          </div>
+          {kind === "prestock" && r.impliedValuation && r.markValuation && (
+            <p className="mt-4 text-[14px] text-ink-2">At this price, {r.asset.name} is valued at <b className="num">{compactUsd(r.impliedValuation)}</b>. PreStocks marks it at <b className="num">{compactUsd(r.markValuation)}</b>.</p>
           )}
-          {result && <ResultCard r={result} onRefresh={() => run()} />}
-        </section>
-      </div>
-
-      <FairOrders />
-
-      <ListedVsPre />
-
-      <WalletCheck />
-
-      {/* Board */}
-      <section className="mt-14">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Every tokenized stock, priced against the real thing</h2>
-            <p className="mt-1 text-sm text-mute">
-              A {usdFmt(board?.probeUsd ?? 1000, 0)} market buy on Jupiter right now vs the reference. Sorted by largest gap.
-              {board && <> Updated {new Date(board.at).toLocaleTimeString()}.</>}
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-card">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-mute">
-              <tr><th className="px-4 py-3 font-medium">Token</th><th className="px-4 py-3 font-medium">Reference</th><th className="px-4 py-3 text-right font-medium">Ref price</th><th className="px-4 py-3 text-right font-medium">Your fill</th><th className="px-4 py-3 text-right font-medium">Gap</th><th className="px-4 py-3"></th></tr>
-            </thead>
-            <tbody>
-              {!board && <tr><td colSpan={6} className="px-4 py-8 text-center text-mute">Quoting 28 tokens on Jupiter…</td></tr>}
-              {sorted.map((r) => (
-                <tr key={r.mint} className="border-b border-line/70 last:border-0 hover:bg-paper/60">
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {r.icon ? <img src={r.icon} alt="" className="h-6 w-6 rounded-full bg-paper object-cover" /> : <div className="h-6 w-6 rounded-full bg-paper" />}
-                      <span className="font-medium">{r.symbol}</span><span className="hidden text-mute sm:inline">{r.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-mute">
-                    {r.refSource ?? "none"}
-                    {r.marketOpen === false && <span className="ml-1.5 rounded bg-paper px-1.5 py-0.5 text-[11px]">US closed</span>}
-                  </td>
-                  <td className="num px-4 py-2.5 text-right">{r.refPrice ? usdFmt(r.refPrice) : "–"}</td>
-                  <td className="num px-4 py-2.5 text-right">{r.fillPrice ? usdFmt(r.fillPrice) : <span className="text-mute">{r.error ? "no route" : "–"}</span>}</td>
-                  <td className={`num px-4 py-2.5 text-right font-semibold ${gapTone(r.premiumPct, r.kind)}`}>{pct(r.premiumPct)}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button onClick={() => { setMint(r.mint); setSide("buy"); run(r.mint, "buy"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="rounded-lg border border-line px-2.5 py-1 text-xs hover:border-ink">Rehearse</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-xs text-mute">
-          xStocks are backed 1:1 by the real share, so a gap is pure cost. PreStocks track a private company through an SPV and can&apos;t be redeemed at mark on demand,
-          so a gap there is the market disagreeing with the last valuation. Amounts account for Token-2022 scaled-UI multipliers (dividends and splits).
-        </p>
-      </section>
-
-      <footer className="mt-16 border-t border-line pt-6 text-xs text-mute">
-        Quotes from Jupiter · reference prices read from Pyth price accounts on Solana and the PreStocks API · not investment advice.
-      </footer>
-    </main>
-  );
-}
-
-// Where the US session is right now, in New York time.
-function nySession(d = new Date()) {
-  const f = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  const p = Object.fromEntries(f.formatToParts(d).map((x) => [x.type, x.value]));
-  const hm = Number(p.hour) * 100 + Number(p.minute);
-  const wk = ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(p.weekday);
-  if (wk && hm >= 930 && hm < 1600) return { open: true, label: "US market open" };
-  if (wk && hm >= 400 && hm < 930) return { open: true, label: "Pre-market" };
-  if (wk && hm >= 1600 && hm < 2000) return { open: true, label: "After hours" };
-  if ((["Sun", "Mon", "Tue", "Wed", "Thu"].includes(p.weekday) && hm >= 2000) || (wk && hm < 400)) return { open: true, label: "Overnight session" };
-  return { open: false, label: "Closed for the weekend. The next opening cross runs when Pyth resumes Sunday 20:00 ET" };
-}
-
-function FairOrders() {
-  const [session, setSession] = useState<{ open: boolean; label: string } | null>(null);
-  useEffect(() => { const tick = () => setSession(nySession()); const first = setTimeout(tick, 0); const t = setInterval(tick, 60_000); return () => { clearTimeout(first); clearInterval(t); }; }, []);
-  const steps = [
-    ["Post a fair order", "\"Buy $500 of NVDAx, never more than 0.5% over the real price.\" The USDC sits in an on-chain escrow. The limit is the live Pyth price, not a number you typed."],
-    ["Market makers compete", "Anyone can fill it, but the program checks every fill against Pyth inside the transaction. A fill 2% over fair is rejected, and a fill below fair goes through with the difference kept by you."],
-    ["Or wait for the open", "Orders placed while the market is closed don't trade into a stale weekend pool. When the Pyth price resumes after 30+ minutes of silence, one cross price is set, and every buyer and seller waiting is matched at exactly that price."],
-  ];
-  return (
-    <section className="mt-14">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 className="text-2xl font-semibold tracking-tight">Fair orders and the Monday-open cross</h2>
-        {session && <span className={`rounded-full px-3 py-1 text-xs font-medium ${session.open ? "bg-good-bg text-good" : "bg-warn-bg text-warn"}`}>{session.label}</span>}
-      </div>
-      <p className="mt-1 max-w-3xl text-sm text-mute">
-        An order book where the limit is fair value, and the weekend doesn&apos;t get to set your price.
-      </p>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {steps.map(([t, d], i) => (
-          <div key={t} className="rounded-2xl border border-line bg-card p-5">
-            <div className="num text-xs text-mute">0{i + 1}</div>
-            <div className="mt-1 font-semibold">{t}</div>
-            <p className="mt-2 text-sm text-mute">{d}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 rounded-2xl border border-line bg-card p-4 text-sm text-mute">
-        Tested end to end on a mainnet fork with the real NVDA Pyth account and NVDAx mint, 17/17:
-        a market maker fill at 0.2% over fair accepted, one at 2% over rejected, a better quote filled 0.09% under fair;
-        Friday orders held through a simulated weekend, then crossed at the Monday reopen print, with a buyer
-        and seller matched at <span className="num text-ink">$231.2865</span>, equal to the cross price to the cent.{" "}
-        <a className="text-ink underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-orders-test-output.txt" target="_blank" rel="noreferrer">Test output</a> ·{" "}
-        <a className="text-ink underline" href={`https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet`} target="_blank" rel="noreferrer">program on devnet</a>.
-        Placing orders from this page opens with the mainnet deploy.
-      </div>
-    </section>
-  );
-}
-
-type CRoute = { symbol: string; issuer: string; kind: string; mint: string; icon?: string; fill: number | null; roundTripPct: number | null; impliedValuation: number | null; unitsBasis: string; structure: string; exitFeeBps: number; multiplier: number };
-type CData = { name: string; usd: number; listed: { price: number; mcap: number; source: string } | null; routes: CRoute[]; best: string | null; notes: string[] };
-
-// SpaceX is listed now, and PreStocks SPACEX still trades. Same company, two ways in.
-function ListedVsPre() {
-  const [d, setD] = useState<CData | null>(null);
-  useEffect(() => { fetch("/api/compare?company=spacex&usd=1000").then((r) => r.json()).then((j) => !j.error && setD(j)).catch(() => {}); }, []);
-  if (!d || d.routes.length < 2) return null;
-  const listed = d.routes.find((r) => r.kind === "xstock");
-  const pre = d.routes.find((r) => r.kind === "prestock");
-  const disc = listed?.impliedValuation && pre?.impliedValuation ? (1 - pre.impliedValuation / listed.impliedValuation) * 100 : null;
-  return (
-    <section className="mt-14">
-      <h2 className="text-2xl font-semibold tracking-tight">{d.name} listed. The pre-IPO token still trades.</h2>
-      <p className="mt-1 max-w-3xl text-sm text-mute">
-        Two ways to own the same company on Solana, compared on the valuation your {usdFmt(d.usd, 0)} actually buys at after fees and the Token-2022 multiplier.
-        {disc != null && <> Right now the PreStocks token prices {d.name} <b className="text-ink">{Math.abs(disc).toFixed(1)}% {disc > 0 ? "below" : "above"}</b> the listed share.</>}
-      </p>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {[listed, pre].filter(Boolean).map((r) => (
-          <div key={r!.mint} className="rounded-2xl border border-line bg-card p-5">
-            <div className="flex items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {r!.icon && <img src={r!.icon} alt="" className="h-8 w-8 rounded-full bg-paper object-cover" />}
-              <div><div className="font-semibold">{r!.symbol} <span className="font-normal text-mute">· {r!.issuer}</span></div>
-                <div className="text-xs text-mute">{r!.structure}</div></div>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-              <div><div className="text-xs text-mute">Your fill</div><div className="num font-semibold">{r!.fill ? usdFmt(r!.fill) : "–"}</div></div>
-              <div><div className="text-xs text-mute">Implied valuation</div><div className="num font-semibold">{r!.impliedValuation ? bil(r!.impliedValuation) : "–"}</div></div>
-              <div><div className="text-xs text-mute">Round trip</div><div className="num font-semibold">{r!.roundTripPct != null ? `−${r!.roundTripPct.toFixed(2)}%` : "–"}</div></div>
-            </div>
-            <div className="mt-3 text-xs text-mute">{r!.unitsBasis}{r!.exitFeeBps ? ` · ${(r!.exitFeeBps / 100).toFixed(0)}% transfer fee` : ""}{r!.multiplier !== 1 ? ` · ${r!.multiplier}× multiplier` : ""}</div>
-          </div>
-        ))}
-      </div>
-      {d.notes.map((n) => <p key={n} className="mt-3 max-w-3xl text-xs text-mute">{n}</p>)}
-    </section>
-  );
-}
-
-type Holding = { symbol: string; name: string; kind: string; mint: string; icon?: string; shares: number; fairPrice: number | null; fairSource: string | null; fairValue: number | null; exitValue: number | null; exitGapPct: number | null; transferFeeBps: number; multiplier: number };
-
-function WalletCheck() {
-  const { publicKey } = useWallet();
-  const [addr, setAddr] = useState("");
-  const [data, setData] = useState<{ holdings: Holding[]; totals: { fair: number; exit: number; stuck: number } } | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  // Falls back to the connected wallet when the box is empty.
-  const target = addr.trim() || publicKey?.toBase58() || "";
-
-  async function check() {
-    setLoading(true); setErr(null); setData(null);
-    const j = await fetch(`/api/wallet?address=${target}`).then((r) => r.json()).catch(() => ({ error: "Could not reach the server" }));
-    if (j.error) setErr(j.error); else setData(j);
-    setLoading(false);
-  }
-
-  return (
-    <section className="mt-14">
-      <h2 className="text-2xl font-semibold tracking-tight">What are your tokenized stocks really worth?</h2>
-      <p className="mt-1 max-w-3xl text-sm text-mute">
-        Paste any wallet. For each xStock and PreStocks position you get the fair value (Pyth or the PreStocks mark) next to what selling it on Jupiter right now would actually pay,
-        after the Token-2022 transfer fee and scaled-UI multiplier.
-      </p>
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder={publicKey ? `Your wallet: ${publicKey.toBase58()}` : "Solana wallet address"}
-          className="num w-full rounded-xl border border-line bg-card px-3 py-2.5 text-sm outline-none focus:border-ink" />
-        <button onClick={check} disabled={loading || target.length < 32}
-          className="shrink-0 rounded-xl bg-ink px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">{loading ? "Quoting every exit…" : "Check wallet"}</button>
-      </div>
-      {err && <p className="mt-3 text-sm text-bad">{err}</p>}
-      {data && data.holdings.length === 0 && <p className="mt-3 text-sm text-mute">No xStocks or PreStocks in this wallet.</p>}
-      {data && data.holdings.length > 0 && (
-        <div className="mt-4 rounded-2xl border border-line bg-card">
-          <div className="grid grid-cols-1 gap-px border-b border-line bg-line sm:grid-cols-3">
-            <div className="bg-card p-4"><div className="text-xs text-mute">Fair value</div><div className="num mt-1 text-xl font-semibold">{usdFmt(data.totals.fair, 0)}</div></div>
-            <div className="bg-card p-4"><div className="text-xs text-mute">Sell everything now</div><div className="num mt-1 text-xl font-semibold">{usdFmt(data.totals.exit, 0)}</div></div>
-            <div className="bg-card p-4"><div className="text-xs text-mute">No on-chain exit at this size</div>
-              <div className={`num mt-1 text-xl font-semibold ${data.totals.stuck > 0 ? "text-bad" : ""}`}>{usdFmt(data.totals.stuck, 0)}</div></div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-mute"><tr>
-                <th className="px-4 py-3 font-medium">Position</th><th className="px-4 py-3 text-right font-medium">Fair value</th>
-                <th className="px-4 py-3 text-right font-medium">Sell now</th><th className="px-4 py-3 text-right font-medium">Exit vs fair</th><th className="px-4 py-3 font-medium">Fees &amp; scaling</th></tr></thead>
-              <tbody>{data.holdings.map((h) => (
-                <tr key={h.mint} className="border-t border-line/70">
-                  <td className="px-4 py-2.5"><div className="flex items-center gap-2.5">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {h.icon ? <img src={h.icon} alt="" className="h-6 w-6 rounded-full bg-paper object-cover" /> : <div className="h-6 w-6 rounded-full bg-paper" />}
-                    <div><div className="font-medium">{h.symbol}</div><div className="num text-xs text-mute">{h.shares.toLocaleString("en-US", { maximumFractionDigits: 4 })} shown in wallet</div></div></div></td>
-                  <td className="num px-4 py-2.5 text-right">{h.fairValue != null ? usdFmt(h.fairValue) : "–"}<div className="text-xs text-mute">{h.fairSource}</div></td>
-                  <td className="num px-4 py-2.5 text-right">{h.exitValue != null ? usdFmt(h.exitValue) : <span className="text-bad">no route</span>}</td>
-                  <td className={`num px-4 py-2.5 text-right font-semibold ${h.exitGapPct == null ? "text-mute" : h.exitGapPct > 5 ? "text-bad" : h.exitGapPct > 1 ? "text-warn" : "text-good"}`}>
-                    {h.exitGapPct == null ? "–" : `${h.exitGapPct > 0 ? "−" : "+"}${Math.abs(h.exitGapPct).toFixed(2)}%`}</td>
-                  <td className="px-4 py-2.5 text-xs text-mute">{h.transferFeeBps ? `${(h.transferFeeBps / 100).toFixed(2)}% sell fee` : "no fee"}{h.multiplier !== 1 ? ` · ${h.multiplier.toFixed(4)}× multiplier` : ""}</td>
-                </tr>))}</tbody>
-            </table>
-          </div>
+          {kind === "xstock" && <p className="mt-4 text-[14px] text-ink-2">Matched against {r.asset.name}&apos;s live price, read on-chain.</p>}
         </div>
       )}
+    </figure>
+  );
+}
+
+function LiveLine() {
+  const { data: board } = useBoard();
+  const worst = [...(board?.rows ?? [])].filter((r) => r.premiumPct != null && r.fillPrice && r.refPrice).sort((a, b) => Math.abs(b.premiumPct!) - Math.abs(a.premiumPct!))[0];
+  return (
+    <section className="border-y border-line bg-panel">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        {worst ? (
+          <p className="max-w-4xl text-[clamp(1.35rem,2.6vw,2rem)] font-medium leading-snug tracking-tight">
+            Right now, a ${board!.probeUsd.toLocaleString()} buy of {worst.name}&apos;s token is priced{" "}
+            <span className={cx("num font-semibold", toneText[gapTone(worst.premiumPct, worst.kind)])}>{Math.abs(worst.premiumPct!).toFixed(0)}% {worst.premiumPct! > 0 ? "above" : "below"}</span>{" "}
+            {worst.kind === "prestock" ? "its own valuation" : "the real stock"}. Most apps won&apos;t show you that.
+          </p>
+        ) : <Skeleton className="h-10 w-3/4" />}
+      </div>
     </section>
   );
 }
 
-function Stat({ label, value, sub, cls = "" }: { label: string; value: React.ReactNode; sub?: React.ReactNode; cls?: string }) {
+function HowItWorks() {
   return (
-    <div className="rounded-xl border border-line p-3.5">
-      <div className="text-xs text-mute">{label}</div>
-      <div className={`num mt-1 text-lg font-semibold ${cls}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-mute">{sub}</div>}
+    <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
+      <h2 className="max-w-2xl text-[clamp(1.9rem,3.6vw,2.75rem)] font-semibold leading-tight tracking-[-0.03em]">
+        Three things happen before your money moves.
+      </h2>
+      <div className="mt-16 space-y-20 lg:space-y-28">
+        <Step n={1} title="Check" body="See your real fill before you sign: what you'd pay per share, the real price, and the difference in dollars. Token fees and stock splits are already counted.">
+          <MiniScale />
+        </Step>
+        <Step n={2} title="Protect" body="Turn on price protection and the trade runs inside a Solana program that checks the fill against the real price. If it comes in worse than your limit, the whole trade is cancelled." flip>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-[10px] border border-line bg-panel px-4 py-3 text-[14px]">
+              <span className="font-medium">Price protection</span>
+              <span className="text-muted">Cancel if 5% worse than fair</span>
+            </div>
+            <div className="rounded-[10px] bg-bad-soft px-4 py-3 text-[14px] text-bad">
+              <b className="font-semibold">Stopped.</b> The fill came in 39% over valuation, so nothing was traded.
+            </div>
+          </div>
+        </Step>
+        <Step n={3} title="Prove" body="The trades we see on Solana are graded against the real price and published, with the data anyone can check. Brokers have to do this. On-chain venues don't, so we do.">
+          <MiniReport />
+        </Step>
+      </div>
+    </section>
+  );
+}
+
+function Step({ n, title, body, children, flip }: { n: number; title: string; body: string; children: React.ReactNode; flip?: boolean }) {
+  return (
+    <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-20">
+      <div className={cx(flip && "lg:order-2")}>
+        <div className="flex items-baseline gap-3">
+          <span className="num text-[15px] font-semibold text-brand-ink">{n}</span>
+          <h3 className="text-[26px] font-semibold tracking-tight">{title}</h3>
+        </div>
+        <p className="mt-3 max-w-[46ch] text-[17px] leading-relaxed text-ink-2">{body}</p>
+      </div>
+      <div className={cx("rounded-[14px] bg-surface p-5 sm:p-8", flip && "lg:order-1")}>{children}</div>
     </div>
   );
 }
 
-function ResultCard({ r, onRefresh }: { r: Rehearsal; onRefresh: () => void }) {
-  const { publicKey, signTransaction, connected } = useWallet();
-  const [exec, setExec] = useState<{ state: "idle" | "building" | "signing" | "sending" | "done" | "error"; msg?: string; sig?: string }>({ state: "idle" });
-  const [age, setAge] = useState(0);
-  useEffect(() => { const t = setInterval(() => setAge(Math.round((Date.now() - r.at) / 1000)), 1000); return () => clearInterval(t); }, [r.at]);
-  const stale = age > 30;
-  const v = r.verdict;
-  const ref = r.reference;
-  const buy = r.side === "buy";
-
-  const [brk, setBrk] = useState<{ cluster: string; nasdaq: { halted: boolean; reason: string | null }; breaker: { address: string; state: string; bandBps: number; exchangeHalted: boolean } | null } | null>(null);
-  useEffect(() => {
-    if (r.asset.kind !== "xstock") return;
-    fetch("/api/breakers").then((x) => x.json()).then((d) => {
-      const row = d.rows?.find((x: { symbol: string }) => x.symbol === r.asset.symbol);
-      if (row) setBrk({ cluster: d.cluster, ...row });
-    }).catch(() => {});
-  }, [r.asset.symbol, r.asset.kind]);
-  const defaultTol = r.asset.kind === "prestock" ? 500 : 100;
-  const [guardOn, setGuardOn] = useState(GUARD_LIVE);
-  const [tol, setTol] = useState(defaultTol);
-
-  async function execute() {
-    if (!publicKey || !signTransaction) return;
-    try {
-      setExec({ state: "building" });
-      const body = JSON.stringify({ quote: r.quote, userPublicKey: publicKey.toBase58(), toleranceBps: tol });
-      const b = await fetch(guardOn ? "/api/guarded-swap" : "/api/swap", { method: "POST", headers: { "content-type": "application/json" }, body }).then((x) => x.json());
-      if (b.error) throw new Error(b.error);
-      setExec({ state: "signing" });
-      const tx = VersionedTransaction.deserialize(b64ToBytes(b.swapTransaction));
-      const signed = await signTransaction(tx);
-      setExec({ state: "sending" });
-      const s = await fetch("/api/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signed: bytesToB64(signed.serialize()), lastValidBlockHeight: b.lastValidBlockHeight }) }).then((x) => x.json());
-      if (s.error) {
-        const blocked = /custom program error: 0x1770|"Custom":6000/.test(s.error);
-        throw Object.assign(new Error(blocked ? "Guard blocked this fill on-chain: it was worse than fair value by more than your tolerance. The whole transaction reverted, so no funds moved." : s.error), { sig: s.signature });
-      }
-      setExec({ state: "done", sig: s.signature });
-    } catch (e) {
-      setExec({ state: "error", msg: e instanceof Error ? e.message : String(e), sig: (e as { sig?: string }).sig });
-    }
-  }
-
+function MiniScale() {
   return (
-    <div className="rounded-2xl border border-line bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {r.asset.icon && <img src={r.asset.icon} alt="" className="h-8 w-8 rounded-full bg-paper object-cover" />}
-          <div>
-            <div className="font-semibold">{buy ? "Buy" : "Sell"} {usdFmt(r.usd, 0)} of {r.asset.symbol}</div>
-            <div className="text-xs text-mute">{r.asset.kind === "xstock" ? "xStock, backed 1:1 by the real share" : "PreStocks, pre-IPO exposure via SPV"}</div>
-          </div>
-        </div>
-        <button onClick={onRefresh} className="rounded-lg border border-line px-2.5 py-1 text-xs text-mute hover:border-ink hover:text-ink">
-          {stale ? "Quote is stale · refresh" : `Quoted ${age}s ago`}
-        </button>
+    <div className="rounded-[10px] border border-line bg-panel p-5">
+      <div className="flex items-baseline justify-between text-[13px] text-muted"><span>Real price <b className="num text-ink">$224.54</b></span><span>You pay <b className="num text-ink">$224.99</b></span></div>
+      <div className="relative mt-4 h-2 rounded-full bg-surface-2">
+        <div className="absolute left-[38%] top-0 h-2 w-[18%] rounded-full bg-good/35" />
+        <span className="absolute left-[38%] top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink ring-4 ring-panel" />
+        <span className="absolute left-[56%] top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-good ring-4 ring-panel" />
       </div>
-
-      <div className={`mt-4 rounded-xl border p-4 ${tone[v.level]}`}>
-        <div className="text-[15px] font-semibold leading-snug">{v.headline}</div>
-        {v.reasons.length > 0 && <ul className="mt-2 space-y-1 text-sm opacity-90">{v.reasons.map((x) => <li key={x}>· {x}</li>)}</ul>}
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-        <Stat label={buy ? "Your fill price" : "Your sell price"} value={usdFmt(r.fillPrice)} sub={`${r.tokens.toFixed(4)} ${r.asset.symbol}`} />
-        <Stat label="Reference price" value={ref ? usdFmt(ref.price) : "–"} sub={ref?.source ?? "no feed"} />
-        <Stat label="Gap vs reference" value={pct(r.premiumPct)} cls={gapTone(r.premiumPct, r.asset.kind)}
-          sub={r.overpayUsd == null ? undefined : r.asset.kind === "prestock"
-            ? `${usdFmt(Math.abs(r.overpayUsd))} ${r.overpayUsd >= 0 ? "above" : "below"} mark value`
-            : `${r.overpayUsd >= 0 ? "Costs you" : "Saves you"} ${usdFmt(Math.abs(r.overpayUsd))}`} />
-        <Stat label="Size impact" value={pct(r.sizeImpactPct)} sub="vs a $10 order" cls={(r.sizeImpactPct ?? 0) > 1 ? "text-warn" : ""} />
-        <Stat label="Round trip" value={r.roundTripCostPct == null ? "–" : `−${r.roundTripCostPct.toFixed(2)}%`} sub="buy then sell straight back" cls={(r.roundTripCostPct ?? 0) > 2 ? "text-warn" : ""} />
-        {r.impliedValuation
-          ? <Stat label="Implied valuation" value={bil(r.impliedValuation)} sub={`mark ${bil(r.markValuation!)}`} />
-          : <Stat label="US market" value={ref?.market ? (ref.market.open ? "Open" : "Closed") : "–"} sub={ref?.market?.label} />}
-      </div>
-
-      <div className="mt-4 space-y-1.5 rounded-xl bg-paper p-3.5 text-xs text-mute">
-        <div>Route: <span className="text-ink">{r.route.join(" → ")}</span> via Jupiter</div>
-        {ref?.account && (
-          <div>Oracle: <a className="text-ink underline decoration-line underline-offset-2" href={`https://solscan.io/account/${ref.account}`} target="_blank" rel="noreferrer">{short(ref.account)}</a>
-            {" "}· published {ref.ageSec}s ago · ±{usdFmt(ref.conf ?? 0, 3)} confidence</div>
-        )}
-        {ref && !ref.account && <div>Reference: <span className="text-ink">{ref.detail}</span></div>}
-        {r.uiMultiplier !== 1 && <div>Token-2022 multiplier {r.uiMultiplier.toFixed(4)}× applied (splits and dividends)</div>}
-        {brk && (
-          <div>
-            Circuit breaker: Nasdaq{" "}
-            <span className={brk.nasdaq.halted ? "font-semibold text-bad" : "text-ink"}>{brk.nasdaq.halted ? `HALTED (${brk.nasdaq.reason})` : "trading"}</span>
-            {brk.breaker && <> · on-chain breaker <a className="text-ink underline decoration-line underline-offset-2" href={`https://explorer.solana.com/address/${brk.breaker.address}?cluster=${brk.cluster}`} target="_blank" rel="noreferrer">{brk.breaker.exchangeHalted ? "halted" : brk.breaker.state}</a> ({brk.breaker.bandBps / 100}% band, {brk.cluster})</>}
-          </div>
-        )}
-        {r.transferFeeBps > 0 && <div>Token-2022 transfer fee {(r.transferFeeBps / 100).toFixed(2)}% withheld on every transfer, included in the fill above</div>}
-      </div>
-
-      <div className="mt-4 rounded-xl border border-line p-3.5">
-        <label className="flex items-start gap-3">
-          <input type="checkbox" checked={guardOn} disabled={!GUARD_LIVE} onChange={(e) => setGuardOn(e.target.checked)} className="mt-1 h-4 w-4 accent-[var(--color-ink)]" />
-          <span className="text-sm">
-            <b>Guard this trade on-chain</b>
-            <span className="block text-mute">
-              Wraps the swap in the Rehearsal Guard program. The program checks what you actually received against {ref?.account ? "the Pyth price" : "the PreStocks mark"} inside the same transaction,
-              and reverts everything if the fill is more than
-              <input type="number" min={0} max={5000} step={10} value={tol} onChange={(e) => setTol(Number(e.target.value))}
-                className="num mx-1 w-16 rounded border border-line px-1 text-ink" /> bps worse.
-              {!GUARD_LIVE && <> The program (<a className="underline" href={GUARD_DEVNET ? `https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet` : "https://github.com/Clintobi/rehearsal/tree/main/onchain"} target="_blank" rel="noreferrer">{short(GUARD_ID)}</a>) passes 9/9 end-to-end tests on a mainnet fork{GUARD_DEVNET ? " and is deployed on devnet" : ""}. It isn&apos;t on mainnet yet, so mainnet trades here go through unguarded.</>}
-            </span>
-          </span>
-        </label>
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        {!connected ? (
-          <span className="text-sm text-mute">Connect a wallet to place this trade.</span>
-        ) : (
-          <button onClick={execute} disabled={stale || ["building", "signing", "sending"].includes(exec.state)}
-            className={`rounded-xl px-5 py-3 text-[15px] font-semibold text-white disabled:opacity-50 ${v.level === "bad" ? "bg-bad" : "bg-ink"}`}>
-            {exec.state === "building" ? "Building transaction…" : exec.state === "signing" ? "Approve in wallet…" : exec.state === "sending" ? "Confirming on Solana…"
-              : stale ? "Refresh the quote first" : v.level === "bad" ? `${buy ? "Buy" : "Sell"} anyway at ${usdFmt(r.fillPrice)}` : `${buy ? "Buy" : "Sell"} at ${usdFmt(r.fillPrice)}`}
-          </button>
-        )}
-        {exec.state === "done" && exec.sig && <a className="text-sm font-medium text-good underline" href={`https://solscan.io/tx/${exec.sig}`} target="_blank" rel="noreferrer">{guardOn ? "Filled inside the guard" : "Filled"} · view on Solscan</a>}
-        {exec.state === "error" && <span className="text-sm text-bad">{exec.msg}{exec.sig && <> · <a className="underline" href={`https://solscan.io/tx/${exec.sig}`} target="_blank" rel="noreferrer">tx</a></>}</span>}
+      <div className="mt-5 flex items-center justify-between">
+        <span className="text-[15px] font-semibold">$2.00 more than it&apos;s worth</span>
+        <Pill tone="good">Fair price</Pill>
       </div>
     </div>
+  );
+}
+
+function MiniReport() {
+  const { data } = useFetch<ReportLite>(REPORT_URL, 300_000);
+  const rows = data?.by_size.filter((r) => r.graded >= 10 && r.median_gap_bps != null) ?? [];
+  return (
+    <div className="rounded-[10px] border border-line bg-panel">
+      <div className="border-b border-line px-4 py-3 text-[13px] text-muted">Typical price paid vs real, by order size</div>
+      {rows.length === 0 ? <div className="p-4"><Skeleton className="h-24 w-full" /></div> : (
+        <ul className="divide-y divide-line">
+          {rows.map((r) => (
+            <li key={r.key} className="flex items-center justify-between px-4 py-3 text-[14px]">
+              <span className="font-medium">{r.key}</span>
+              <span className={cx("num font-semibold", r.median_gap_bps! > 100 ? "text-bad" : r.median_gap_bps! > 25 ? "text-warn" : "text-good")}>{pct(r.median_gap_bps! / 100)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ReportTeaser() {
+  const { data } = useFetch<ReportLite>(REPORT_URL, 300_000);
+  const small = data?.by_size.find((s) => s.key === "< $100");
+  const mid = data?.by_size.find((s) => s.key === "$100–1k");
+  const ready = small?.median_gap_bps != null && mid?.median_gap_bps != null && small.graded >= 10 && mid.graded >= 10;
+  // Only claim small trades pay more when the data clearly says so.
+  const smallPaysMore = ready && small!.median_gap_bps! - mid!.median_gap_bps! >= 10 && small!.median_gap_bps! >= 2 * Math.max(mid!.median_gap_bps!, 1);
+  return (
+    <section className="bg-ink text-bg">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-24 sm:px-6 lg:grid-cols-[1.2fr_1fr] lg:items-end lg:py-28">
+        <div>
+          <h2 className="text-[clamp(1.9rem,3.6vw,2.75rem)] font-semibold leading-tight tracking-[-0.03em]">
+            {smallPaysMore ? "Small trades pay the most." : "Every fill, graded in public."}
+          </h2>
+          <p className="mt-4 max-w-[48ch] text-[17px] leading-relaxed opacity-80">
+            {smallPaysMore
+              ? `In the trades we've graded, orders under $100 paid a typical ${pct(small!.median_gap_bps! / 100)} over the real price. Orders of $100 to $1,000 paid ${pct(mid!.median_gap_bps! / 100)}.`
+              : "We grade tokenized-stock trades on Solana against the real stock price and publish the results every ten minutes, venue by venue, so you can see where the bad fills happen."}
+          </p>
+        </div>
+        <div className="lg:text-right">
+          <Link href="/report" className={cx(cta, "bg-bg px-6 text-ink hover:opacity-90")}>Read the report</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Weekend() {
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-20">
+        <h2 className="text-[clamp(1.9rem,3.6vw,2.75rem)] font-semibold leading-tight tracking-[-0.03em]">The weekend doesn&apos;t get to set your price.</h2>
+        <div>
+          <p className="text-[17px] leading-relaxed text-ink-2">
+            Tokenized stocks trade all weekend. The real stocks don&apos;t, so weekend prices are guesses on thin volume. With a fair order you can wait for Monday instead, and everyone waiting gets filled together at the first real price.
+          </p>
+          <Link href="/app/orders" className="mt-6 inline-block text-[15px] font-semibold text-brand-ink hover:underline">How orders work</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Closing() {
+  return (
+    <section className="border-t border-line">
+      <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <h2 className="max-w-xl text-[clamp(1.6rem,3vw,2.25rem)] font-semibold leading-tight tracking-[-0.03em]">Check your next trade before you make it.</h2>
+        <Link href="/app" className={cx(cta, "bg-brand text-on-brand hover:bg-brand-hover")}>Open app</Link>
+      </div>
+    </section>
   );
 }

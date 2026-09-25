@@ -1,20 +1,32 @@
-import type { Metadata } from "next";
-import { Inter_Tight, JetBrains_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Schibsted_Grotesk } from "next/font/google";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
-const sans = Inter_Tight({ subsets: ["latin"], variable: "--font-sans" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const sans = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://rehearsal-stocklana.vercel.app"),
-  title: "Rehearsal: check the price before you buy a tokenized stock",
-  description: "Compare your real Jupiter fill for xStocks and PreStocks against Pyth and the issuer mark, on Solana, before you sign.",
+  title: { default: "Rehearsal", template: "%s · Rehearsal" },
+  description: "Buy tokenized stocks on Solana at a fair price. Rehearsal checks every trade against the real stock price and stops the ones that aren't fair.",
 };
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0b0b" },
+  ],
+};
+
+// Applies a saved theme before first paint so there's no flash; falls back to the system setting.
+const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={sans.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body><Providers>{children}</Providers></body>
     </html>
   );
