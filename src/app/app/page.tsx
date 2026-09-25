@@ -421,14 +421,18 @@ function Execute({ r, tone, pp, onCert }: { r: Rehearsal; tone: Tone; pp: Passpo
   const stale = age > 30;
   const busy = ["building", "signing", "sending"].includes(state.s);
   const verb = r.side === "buy" ? "Buy" : "Sell";
-  const limit = pp ? (pp.protect.maxGapBps / 100).toFixed(2) : null;
+  // The mandate: most the fill may be worse than fair. Suggested by the passport, adjustable here.
+  const [pick, setPick] = useState<number | null>(null);
+  const bps = pick ?? pp?.protect.maxGapBps ?? null;
+  const limit = bps != null ? (bps / 100).toFixed(2) : null;
+  const choices = pp ? [...new Set((pp.kind === "prestock" ? [100, 500, pp.protect.maxGapBps] : [25, 50, 100, 300, pp.protect.maxGapBps]))].sort((a, b) => a - b) : [];
 
   async function go() {
     if (!publicKey || !signTransaction) return;
     try {
       setState({ s: "building" });
       const b = protect
-        ? await fetch("/api/v1/swap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbol: r.asset.symbol, usd: r.usd, side: r.side, wallet: publicKey.toBase58() }) }).then((x) => x.json())
+        ? await fetch("/api/v1/swap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbol: r.asset.symbol, usd: r.usd, side: r.side, wallet: publicKey.toBase58(), maxGapBps: bps ?? undefined }) }).then((x) => x.json())
         : await fetch("/api/swap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ quote: r.quote, userPublicKey: publicKey.toBase58() }) }).then((x) => x.json()).then((j) => ({ ...j, transaction: j.swapTransaction }));
       if (b.error) throw new Error(b.error);
       setState({ s: "signing" });
@@ -463,6 +467,17 @@ function Execute({ r, tone, pp, onCert }: { r: Rehearsal; tone: Tone; pp: Passpo
               : available ? `If you'd ${r.side === "buy" ? "pay" : "get"} more than ${limit}% ${r.side === "buy" ? "over" : "under"} fair (${pp.evidence.source}), the trade cancels on-chain.`
               : `Off right now: ${pp.evidence.rule.toLowerCase()}.`}
           </span>
+          {protect && choices.length > 0 && (
+            <span className="mt-3 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Protection limit">
+              <span className="text-[13px] text-muted">Cancel if worse than fair by more than</span>
+              {choices.map((c) => (
+                <button key={c} type="button" role="radio" aria-checked={bps === c} onClick={(e) => { e.preventDefault(); setPick(c); }}
+                  className={cx("num rounded-full border px-2.5 py-0.5 text-[12px] font-semibold transition-colors", bps === c ? "border-ink bg-ink text-bg" : "border-line text-ink-2 hover:border-line-strong")}>
+                  {(c / 100).toFixed(c % 100 ? 2 : 0)}%
+                </button>
+              ))}
+            </span>
+          )}
         </span>
       </label>
 
