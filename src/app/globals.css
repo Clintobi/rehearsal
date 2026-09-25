@@ -182,6 +182,7 @@ p { text-wrap: pretty; }
   font-family: inherit !important;
   font-size: 14px !important;
   font-weight: 600 !important;
+  white-space: nowrap !important;
 }
 .wallet-adapter-button-trigger:hover { background: var(--brand-hover) !important; }
 .wallet-adapter-modal-wrapper { background: var(--surface) !important; font-family: inherit !important; }
