@@ -28,6 +28,8 @@
   --bad-soft: oklch(0.955 0.03 27);
   --focus: oklch(0.6 0.17 240);
   --shadow: 0 1px 2px oklch(0.2 0.02 250 / 0.08), 0 12px 32px oklch(0.2 0.02 250 / 0.1);
+  --band: oklch(0.2 0.02 250);
+  --on-band: oklch(0.98 0.004 250);
   color-scheme: light;
 }
 
@@ -57,6 +59,8 @@
     --bad-soft: oklch(0.26 0.06 27);
     --focus: oklch(0.72 0.15 240);
     --shadow: 0 1px 2px oklch(0 0 0 / 0.4), 0 12px 32px oklch(0 0 0 / 0.35);
+    --band: oklch(0.19 0.012 250);
+    --on-band: oklch(0.965 0.004 250);
     color-scheme: dark;
 }
 }
@@ -83,6 +87,8 @@
   --bad-soft: oklch(0.26 0.06 27);
   --focus: oklch(0.72 0.15 240);
   --shadow: 0 1px 2px oklch(0 0 0 / 0.4), 0 12px 32px oklch(0 0 0 / 0.35);
+  --band: oklch(0.19 0.012 250);
+  --on-band: oklch(0.965 0.004 250);
   color-scheme: dark;
 }
 
@@ -101,6 +107,8 @@
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
   --color-on-brand: var(--on-brand);
+  --color-band: var(--band);
+  --color-on-band: var(--on-band);
   --color-good: var(--good);
   --color-good-soft: var(--good-soft);
   --color-warn: var(--warn);
@@ -186,3 +194,17 @@ p { text-wrap: pretty; }
 .wallet-adapter-modal-title, .wallet-adapter-modal-list .wallet-adapter-button { color: var(--ink) !important; }
 .wallet-adapter-modal-list .wallet-adapter-button { background: transparent !important; }
 .wallet-adapter-modal-list .wallet-adapter-button:hover { background: var(--surface-2) !important; }
+
+/* First-run tour: native dialog, bottom sheet on phones, centered on larger screens */
+dialog.tour::backdrop { background: oklch(0.15 0.01 250 / 0.45); backdrop-filter: blur(3px); }
+dialog.tour[open] { animation: tour-in 280ms var(--ease-out-quart); }
+@keyframes tour-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+.tour-step { animation: 240ms var(--ease-out-quart) both; }
+.tour-next { animation-name: step-next; }
+.tour-prev { animation-name: step-prev; }
+@keyframes step-next { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes step-prev { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+
+/* Screen change: a short settle so navigation feels continuous */
+.page-in { animation: page-in 220ms var(--ease-out-quart) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

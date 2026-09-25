@@ -8,7 +8,7 @@ const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://rehearsal-stocklana.vercel.app"),
   title: { default: "Rehearsal", template: "%s · Rehearsal" },
-  description: "Buy tokenized stocks on Solana at a fair price. Rehearsal checks every trade against the real stock price and stops the ones that aren't fair.",
+  description: "See Monday's move on Sunday. Rehearsal turns weekend stock-token prices into a forecast of Monday's open, shows the real price before you buy, and blocks bad fills.",
 };
 
 export const viewport: Viewport = {

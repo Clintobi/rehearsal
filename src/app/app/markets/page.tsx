@@ -2,8 +2,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useBoard, useFetch, type BoardRow } from "@/lib/hooks";
-import { compactUsd, gapTone, pct, price } from "@/lib/format";
-import { cx, InfoTip, Pill, Segmented, Skeleton, TokenIcon, toneText } from "@/components/ui";
+import { gapTone, pct, price } from "@/lib/format";
+import { cx, Pill, Segmented, Skeleton, TokenIcon, toneText } from "@/components/ui";
 import MarketsNav from "@/components/MarketsNav";
 
 type Filter = "all" | "xstock" | "prestock";
@@ -42,7 +42,7 @@ export default function Markets() {
 
   return (
     <div className="space-y-8">
-      <MarketsNav />
+      <MarketsNav right={<HaltsPill />} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13.5px] text-muted">Price for a {board ? `$${board.probeUsd.toLocaleString()}` : "$1,000"} buy vs the real price.</p>
@@ -94,71 +94,18 @@ export default function Markets() {
         </table>
       </div>
 
-      <div className="grid gap-10 pt-4 lg:grid-cols-2">
-        <ListedVsPre />
-        <Halts />
-      </div>
     </div>
   );
 }
 
-type Route = { symbol: string; issuer: string; kind: string; mint: string; icon?: string; fill: number | null; impliedValuation: number | null; roundTripPct: number | null; exitFeeBps: number };
-type Compare = { name: string; usd: number; routes: Route[] };
+type Halt = { symbol: string; ticker: string; nasdaq: { halted: boolean }; breaker: { state: string; exchangeHalted: boolean } | null };
 
-function ListedVsPre() {
-  const { data } = useFetch<Compare>("/api/compare?company=spacex&usd=1000", 120_000);
-  const listed = data?.routes?.find((r) => r.kind === "xstock");
-  const pre = data?.routes?.find((r) => r.kind === "prestock");
-  const disc = listed?.impliedValuation && pre?.impliedValuation ? (1 - pre.impliedValuation / listed.impliedValuation) * 100 : null;
-  return (
-    <section aria-labelledby="spacex">
-      <h2 id="spacex" className="text-[15px] font-semibold">SpaceX: listed vs pre-IPO</h2>
-      <p className="mt-1 text-[14px] text-muted">
-        {disc != null ? <>The pre-IPO token is <b className="font-medium text-ink">{Math.abs(disc).toFixed(0)}% {disc > 0 ? "cheaper" : "dearer"}</b> than the listed stock.</> : " "}
-      </p>
-      <ul className="mt-3 divide-y divide-line border-y border-line">
-        {[listed, pre].map((r, i) => r ? (
-          <li key={r.mint} className="flex items-center gap-3 py-3">
-            <TokenIcon src={r.icon} symbol={r.symbol} size={28} />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-medium">{r.kind === "xstock" ? "Listed" : "Pre-IPO"}</span>
-              <span className="block text-[12px] text-muted">{r.symbol} · {r.issuer}{r.exitFeeBps ? ` · ${r.exitFeeBps / 100}% transfer fee` : ""}</span>
-            </span>
-            <span className="text-right">
-              <span className="num block text-[14px] font-semibold">{r.impliedValuation ? compactUsd(r.impliedValuation) : "–"}</span>
-              <span className="num block text-[12px] text-muted">{r.fill ? `${price(r.fill)} / share` : "–"}</span>
-            </span>
-          </li>
-        ) : <li key={i} className="py-3"><Skeleton className="h-8 w-full" /></li>)}
-      </ul>
-    </section>
-  );
-}
-
-type Halt = { symbol: string; ticker: string; nasdaq: { halted: boolean; reason: string | null; at: string | null }; breaker: { address: string; state: string; exchangeHalted: boolean } | null };
-
-function Halts() {
-  const { data } = useFetch<{ cluster: string; rows: Halt[] }>("/api/breakers", 30_000, 60_000);
-  const halted = data?.rows.filter((r) => r.nasdaq.halted || r.breaker?.exchangeHalted || (r.breaker && r.breaker.state !== "normal")) ?? [];
-  return (
-    <section aria-labelledby="halts">
-      <h2 id="halts" className="flex items-center gap-1.5 text-[15px] font-semibold">
-        Trading halts
-        <InfoTip>Nasdaq halts, mirrored on-chain.</InfoTip>
-      </h2>
-      <p className="mt-1 text-[14px] text-muted">
-        {!data ? " " : halted.length === 0 ? `All ${data.rows.length} trading.` : `${halted.length} halted.`}
-      </p>
-      <ul className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
-        {(data?.rows ?? Array.from({ length: 6 }).map(() => null)).map((r, i) => r ? (
-          <li key={r.symbol} className="flex items-center justify-between bg-bg px-3.5 py-2.5">
-            <span className="text-[13.5px] font-medium">{r.ticker}</span>
-            {r.nasdaq.halted || r.breaker?.exchangeHalted
-              ? <Pill tone="bad">Halted</Pill>
-              : r.breaker && r.breaker.state !== "normal" ? <Pill tone="warn">Paused</Pill> : <Pill tone="good">Open</Pill>}
-          </li>
-        ) : <li key={i} className="bg-bg px-3.5 py-2.5"><Skeleton className="h-6 w-full" /></li>)}
-      </ul>
-    </section>
-  );
+// Nasdaq halts, mirrored on-chain. Quiet when everything trades; names the stocks when not.
+function HaltsPill() {
+  const { data } = useFetch<{ rows: Halt[] }>("/api/breakers", 30_000, 60_000);
+  if (!data) return null;
+  const halted = data.rows.filter((r) => r.nasdaq.halted || r.breaker?.exchangeHalted || (r.breaker && r.breaker.state !== "normal"));
+  return halted.length === 0
+    ? <Pill tone="good">No halts</Pill>
+    : <Pill tone="bad">Halted: {halted.map((h) => h.ticker).join(", ")}</Pill>;
 }

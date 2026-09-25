@@ -12,7 +12,11 @@
 - Blink Action (live): https://rehearsal-stocklana.vercel.app/api/actions/rehearse/OPENAI (the dial.to registry is paused, so there is no registry listing)
 
 ## One line
-A tradability passport for tokenized stocks: before you trade, know what you hold, whether the price can be trusted right now and whether you can get out; then the chain refuses any fill worse than fair value, and the receipt is written into the transaction.
+See Monday's move on Sunday. Rehearsal turns weekend tokenized-stock prices into a forecast of Monday's open with a public track record (Nvidia: right direction 26 of the last 29 weekends), shows the real price before you buy, blocks any fill worse than your limit on-chain, and (coming after audit) pays a weekly premium on the stocks you hold.
+
+## How it fits together
+- **For users:** see Monday's move (Weekend), never pay the markup (price check + protection, Markets, Pre-IPO), earn a weekly premium (Earn, in testing).
+- **Underneath, one engine:** a reference price for every market state (Pyth in session, a 24/7 perp outside it, the 4 PM close, halts mirrored on-chain), used by the forecast, the price check, the protection floor, Earn settlement and the public execution report.
 
 ## The problem
 Tokenized stocks trade 24/7 on thin pools; the real share trades 6.5 hours a day; pre-IPO companies don't trade at all. 63% of Solana tokenized-stock volume happens while US exchanges are closed (Allium), and Pyth's free on-chain equity prices only update in the regular session. On 17 Sep 2026 the SEC exempted on-chain tokenized-stock venues from Rules 605 and 611 and set no best-execution standard (Rel. 34-106402). Nothing between a quote and a signature tells a trader what the token legally is, whether the price is anchored to anything, whether they could sell it back, or stops a bad fill. Agents are about to trade these markets at machine speed with the same blind spots.

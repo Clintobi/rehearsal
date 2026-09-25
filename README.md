@@ -1,6 +1,6 @@
 # Rehearsal
 
-**A tradability passport for tokenized stocks on Solana. Know what you hold. Know what you paid. Know you can get out.**
+**See Monday's move on Sunday. The real price of every tokenized stock, before you buy, around the clock, with bad fills blocked on-chain.**
 
 xStocks and PreStocks trade around the clock on DEX liquidity. The real share trades 6.5 hours a day, pre-IPO companies don't trade at all, and 63% of Solana tokenized-stock volume happens while US exchanges are closed (Allium, 12 months to 18 Aug 2026). The SEC's new exemption for on-chain stock venues even drops the best-execution rules. So the price a wallet is about to pay can drift far from fair value, and nothing between the quote and the signature says so.
 

@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -51,22 +51,29 @@ function Trade() {
   useEffect(() => {
     if (!mint || !(usdAmount > 0)) return;
     const id = ++req.current;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
     const run = async () => {
       setLoading(true);
       try {
         const r = await fetch(`/api/rehearse?mint=${mint}&usd=${usdAmount}&side=${side}`);
         const j = await r.json();
         if (id !== req.current) return;
-        if (j.error) { setError(j.error); setResult(null); } else { setResult(j); setError(null); }
+        if (j.error) {
+          // Busy upstream: keep what's on screen and try again shortly instead of showing an error.
+          if (/rate limit|429|try again/i.test(j.error) && tries++ < 5) { retry = setTimeout(run, 2500 * tries); return; }
+          setError(/no route|liquidity/i.test(j.error) ? "No one is selling this size right now. Try a smaller amount." : "Prices are unavailable right now. We'll keep trying.");
+          setResult(null);
+        } else { tries = 0; setResult(j); setError(null); }
       } catch {
-        if (id === req.current) setError("Can't reach the price service. Check your connection.");
+        if (id === req.current) setError("You're offline. Check your connection.");
       } finally {
         if (id === req.current) setLoading(false);
       }
     };
     const t = setTimeout(run, 450);
     const every = setInterval(run, 20_000);
-    return () => { clearTimeout(t); clearInterval(every); };
+    return () => { clearTimeout(t); clearInterval(every); if (retry) clearTimeout(retry); };
   }, [mint, usdAmount, side]);
 
   // Token facts load alongside the quote; the verdict works without them.
@@ -90,7 +97,6 @@ function Trade() {
   const ppNow = pp && pp.symbol === symbol && pp.side === side ? pp : null;
   const r = result && result.asset.symbol === symbol && result.side === side ? result : null;
 
-  const others = useMemo(() => (board?.rows ?? []).filter((x) => x.premiumPct != null && x.mint !== mint).slice(0, 6), [board, mint]);
   const pick = (m: string) => { setMint(m); setResult(null); setPp(null); setCert(null); };
 
   return (
@@ -103,32 +109,8 @@ function Trade() {
         <Ticket assets={assets} board={board?.rows} mint={mint} onPick={pick} side={side} setSide={setSide} amount={amount} setAmount={setAmount} r={r} pp={ppNow} onCert={setCert} />
       </aside>
 
-      <div className="min-w-0 space-y-10 [grid-area:facts]">
+      <div className="min-w-0 [grid-area:facts]">
         <Passport p={ppNow} loading={ppLoading} cert={cert && cert.symbol === symbol ? cert : null} />
-        {others.length > 0 && (
-          <section aria-labelledby="others">
-            <div className="flex items-baseline justify-between">
-              <h2 id="others" className="text-[15px] font-semibold">Other stocks</h2>
-              <Link href="/app/markets" className="text-[13px] font-medium text-brand-ink hover:underline">All markets</Link>
-            </div>
-            <ul className="mt-3 divide-y divide-line border-y border-line">
-              {others.map((o) => (
-                <li key={o.mint}>
-                  <button onClick={() => { pick(o.mint); setSide("buy"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                    className="flex w-full items-center gap-3 py-3 text-left transition-colors hover:bg-surface">
-                    <TokenIcon src={o.icon} symbol={o.symbol} size={28} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-medium">{o.name}</span>
-                      <span className="block text-[12px] text-muted">{o.symbol}</span>
-                    </span>
-                    <span className="num text-right text-[14px]">{o.fillPrice ? price(o.fillPrice) : "–"}</span>
-                    <span className={cx("num w-16 text-right text-[13px] font-medium", toneText[gapTone(o.premiumPct, o.kind)])}>{pct(o.premiumPct!, 1)}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
     </div>
   );

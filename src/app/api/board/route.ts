@@ -16,6 +16,9 @@ export type BoardRow = {
 };
 
 let cache: { at: number; body: unknown } | null = null;
+// Last good fill per token, so a busy quote service shows a recent price instead of a blank.
+const lastGood = new Map<string, { at: number; fillPrice: number; impactPct: number }>();
+const LAST_GOOD_MS = 15 * 60_000;
 
 async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>) {
   const out: R[] = new Array(items.length);
@@ -45,12 +48,20 @@ export async function GET() {
     const q = await quote(USDC, a.mint, BigInt(PROBE_USD * 1e6));
     const base = { symbol: a.symbol, name: a.name, mint: a.mint, kind: a.kind, icon: a.icon, refPrice, refSource,
       marketOpen: a.pyth ? marketStatus(a.pyth.schedule).open : null };
-    if ("error" in q) return { ...base, fillPrice: null, premiumPct: null, impactPct: null, error: q.error };
+    if ("error" in q) {
+      const g = lastGood.get(a.mint);
+      if (g && Date.now() - g.at < LAST_GOOD_MS) return { ...base, fillPrice: g.fillPrice, premiumPct: refPrice ? (g.fillPrice / refPrice - 1) * 100 : null, impactPct: g.impactPct };
+      return { ...base, fillPrice: null, premiumPct: null, impactPct: null, error: q.error };
+    }
     const info = mults.get(a.mint);
     const fillPrice = PROBE_USD / ((Number(q.outAmount) / 10 ** a.decimals) * (info?.multiplier ?? 1) * (1 - (info?.transferFeeBps ?? 0) / 10_000));
-    return { ...base, fillPrice, premiumPct: refPrice ? (fillPrice / refPrice - 1) * 100 : null, impactPct: Number(q.priceImpactPct) * 100 };
+    const impactPct = Number(q.priceImpactPct) * 100;
+    lastGood.set(a.mint, { at: Date.now(), fillPrice, impactPct });
+    return { ...base, fillPrice, premiumPct: refPrice ? (fillPrice / refPrice - 1) * 100 : null, impactPct };
   });
   const body = { probeUsd: PROBE_USD, at: Date.now(), rows };
-  cache = { at: Date.now(), body };
+  const priced = rows.filter((r) => r.fillPrice != null).length;
+  // A mostly empty board (quote service busy) is kept for 10 seconds, not 45, so it refills quickly.
+  cache = { at: priced >= rows.length / 2 ? Date.now() : Date.now() - 35_000, body };
   return NextResponse.json(body);
 }

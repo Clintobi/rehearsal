@@ -65,7 +65,8 @@ export default function Earn() {
       setNote({ tone: "good", text: "Done." });
       reload();
     } catch (e) {
-      setNote({ tone: "bad", text: e instanceof Error ? e.message : String(e) });
+      const m = e instanceof Error ? e.message : String(e);
+      setNote({ tone: "bad", text: /User rejected|rejected the request/i.test(m) ? "You cancelled in your wallet. Nothing was sent." : m });
     } finally {
       setBusy(null);
     }

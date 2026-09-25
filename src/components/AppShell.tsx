@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { cx, Logo, ThemeToggle } from "./ui";
+import Tour, { openTour } from "./Tour";
 
 const WalletMultiButton = dynamic(() => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton), { ssr: false });
 
@@ -40,13 +41,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-1.5">
+            <button onClick={openTour} aria-label="Take the tour" title="Take the tour"
+              className="grid h-9 w-9 place-items-center rounded-lg text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6M12 17.2v.1" /></svg>
+            </button>
             <ThemeToggle />
             <WalletMultiButton />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 md:pb-16 md:pt-10">{children}</main>
+      <main key={path} className="page-in mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 md:pb-20 md:pt-12">{children}</main>
+      <Tour />
 
       <footer className="mx-auto hidden max-w-6xl px-4 sm:px-6 md:block">
         <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-line py-6 text-[12.5px] text-muted">
