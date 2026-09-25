@@ -1,0 +1,44 @@
+name: zk-proof
+
+# Generates the Groth16 proof of the execution report (zk/) on a GitHub-hosted runner
+# and uploads zk/out/ as an artifact. Run it from the Actions tab ("Run workflow").
+on:
+  workflow_dispatch:
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space and add swap
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo fallocate -l 16G /swapfile2 && sudo chmod 600 /swapfile2 && sudo mkswap /swapfile2 && sudo swapon /swapfile2
+          free -h && df -h /
+
+      - name: Install build tools
+        run: sudo apt-get update -y && sudo apt-get install -y build-essential pkg-config libssl-dev clang protobuf-compiler
+
+      - name: Install SP1
+        run: |
+          curl -L https://sp1up.succinct.xyz | bash
+          ~/.sp1/bin/sp1up
+          echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
+
+      - name: Correctness check
+        working-directory: zk/script
+        run: |
+          cargo run --release -- --execute
+          test "$(cat ../out/public_values.hex)" = "1d4b3ed610384ec03abd824de75a387c17bc526c40ee3f4b0f4429884e0f144c36010000310100008fc4415b250000000300000038000000f000000005000000ef48fd5e00000000200000001501000002000000"
+
+      - name: Groth16 proof
+        working-directory: zk/script
+        run: cargo run --release
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zk-proof
+          path: zk/out/
