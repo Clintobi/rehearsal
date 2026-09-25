@@ -42,6 +42,25 @@ Tests:
 
 Breakers for the 11 Pyth-referenced stocks are live on devnet.
 
+## Fair orders and the Monday-open cross
+
+- **Fair orders** (`place_order` / `fill_order` / `cancel_order`): an order's limit is Pyth fair value plus the owner's `max_gap_bps`, not a number the owner typed. The input sits in a program-owned escrow. Any market maker can fill part or all of it. The program measures what the owner actually received (after Token-2022 transfer fees and the scaled-UI multiplier) and rejects any fill worse than the limit. Price improvement goes to the owner, and each fill emits its gap vs Pyth.
+- **Opening cross** (`crank_cross` / `cross_orders`): orders placed with `at_open` can't be filled directly while the market is closed. `crank_cross` is permissionless and records the Pyth publish time. When the feed resumes after at least 30 minutes of silence (a weekend, a holiday), it snapshots that reopen print as the cross price and opens a 5-minute window. `cross_orders` matches any waiting buyer and seller at exactly that price.
+- **Discovery bounds for the guard** (`Policy.drift_bps_per_hour`): the tolerance widens with the age of the Pyth price, capped at 50%. A weekend trade isn't judged against Friday's close as if it were live, and it isn't waved through either. The same idea as trade.xyz's off-hours bounds, applied to spot swaps.
+
+Tests: 17/17 on a Surfpool mainnet fork (`scripts/fork-orders-test.ts`, output in `docs/fork-orders-test-output.txt`):
+- A fill at 0.2% over fair is accepted and one at 2% over is rejected. A better quote fills 0.09% under fair.
+- At-open orders can't be picked off over the weekend.
+- A crank during the close doesn't open a cross, and the first print after 3 hours opens one.
+- A buyer and seller cross at $231.2865, equal to the cross price to the cent. The window closes after 5 minutes, and cancel returns the rest.
+- A stale oracle with a fixed 1% tolerance blocks a trade that discovery bounds correctly allow.
+
+## Verifiable report
+
+Every report update publishes the exact graded-fill dataset (`fills.json`, one row per fill with its transaction signature) and writes the dataset's SHA-256 to Solana devnet in a memo transaction. `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills, using the same integer math as the ZK program.
+
+`zk/` holds an SP1 program that recomputes the report from raw fills without trusting any precomputed gap. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares. A Groth16 proof over a frozen 310-fill snapshot is in progress on an external prover, since this repo's machine lacks the RAM, and will be verified on Solana with `sp1-solana`.
+
 ## Blink: the check where traders already are
 
 Any token has a Solana Action at `/api/actions/rehearse/<SYMBOL>`, and `/rehearse/<SYMBOL>` is a shareable link that `actions.json` maps to it. The card image is rendered live (`/api/actions/card/<SYMBOL>`) with the current gap vs fair value. The buttons build a buy for the clicking wallet, re-quoted at click time, with the transfer fee counted in slippage. When the token looks bad, the buttons say "Buy anyway". When the guard is live on the cluster, the Blink's buy runs inside it.
@@ -122,6 +141,15 @@ surfpool start -u <mainnet rpc> --no-tui --no-deploy --no-studio
 solana program deploy onchain/target/deploy/rehearsal_guard.so --program-id <keypair> -u http://127.0.0.1:8899
 npx tsx scripts/fork-test.ts
 ```
+
+## Program instructions (devnet `TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE`)
+
+| Instruction | What it does |
+|---|---|
+| `open_guard` / `close_guard` | Wrap any swap; revert if the fill is worse than Pyth or a limit, beyond tolerance and discovery bounds |
+| `init_breaker` / `crank_breaker` / `set_halt` / `check_breaker` | LULD-style circuit breaker plus primary-exchange halt-sync |
+| `place_order` / `fill_order` / `cancel_order` | Fair orders: limit = fair value; market makers compete; price improvement goes to the owner |
+| `crank_cross` / `cross_orders` | Opening cross: weekend orders clear together at the reopen print |
 
 ## Code map
 
