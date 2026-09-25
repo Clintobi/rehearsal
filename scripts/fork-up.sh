@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 pkill -9 -f "surfpool start" 2>/dev/null || true; sleep 2
 rm -f /tmp/surfpool-fork.sqlite*
 if lsof -iTCP:8899 -sTCP:LISTEN -n -P | grep -q surfpool; then echo "port 8899 still held by surfpool"; exit 1; fi
-surfpool start -u "$MAINNET_RPC" --db "/tmp/surfpool-fork.sqlite" --no-tui --no-deploy --no-studio -y > /tmp/surfpool.log 2>&1 &
+surfpool start -u "$MAINNET_RPC" --no-tui --no-deploy --no-studio -y > /tmp/surfpool.log 2>&1 &
 until curl -s http://127.0.0.1:8899 -X POST -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"getSlot"}' | grep -q result; do sleep 1; done
 L=http://127.0.0.1:8899
 solana airdrop 100 "$(solana address -k onchain/keys/deployer.json)" -u $L >/dev/null

@@ -2,7 +2,7 @@
 // full swap path is tested on the mainnet fork (fork-test.ts); here we hit the guard's own rules.
 import { ComputeBudgetProgram, Connection, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { readFileSync } from "fs";
-import { ata, breakerPda, checkBreakerIx, closeGuardIx, crankBreakerIx, decodeBreaker, GUARD_ERRORS, GUARD_PROGRAM_ID, initBreakerIx, openGuardIx, setHaltIx, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
+import { crankCrossIx, crossPda, decodeCross, ata, breakerPda, checkBreakerIx, closeGuardIx, crankBreakerIx, decodeBreaker, GUARD_ERRORS, GUARD_PROGRAM_ID, initBreakerIx, openGuardIx, setHaltIx, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
 
 const conn = new Connection(process.env.DEVNET_RPC ?? "https://api.devnet.solana.com", "confirmed");
 const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync("onchain/keys/deployer.json", "utf8"))));
@@ -55,4 +55,10 @@ async function run(name: string, ixs: TransactionInstruction[], expect: number) 
   await run("check_breaker fails while halted", [crankBreakerIx(SOL_FEED, SOL_PRICE), checkBreakerIx(SOL_FEED)], 6017);
   await run("lift the halt", [setHaltIx(payer.publicKey, SOL_FEED, false)], 0);
   await run("check_breaker passes again", [crankBreakerIx(SOL_FEED, SOL_PRICE), checkBreakerIx(SOL_FEED)], 0);
+
+  // Opening cross: arm it from the live feed. A cross opens only after the feed was silent
+  // for 30+ minutes (weekend or holiday), which a 24/7 SOL feed never is, so it stays armed.
+  await run("crank_cross records the latest publish time (armed, no reopen)", [crankCrossIx(payer.publicKey, SOL_FEED, SOL_PRICE)], 0);
+  const c = decodeCross((await conn.getAccountInfo(crossPda(SOL_FEED)))!.data as Buffer);
+  console.log(`      cross: last publish ${new Date(c.lastPublishSeen * 1000).toISOString()}, crosses=${c.crosses}`);
 })();

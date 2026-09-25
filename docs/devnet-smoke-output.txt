@@ -1,12 +1,13 @@
 program TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE on devnet, payer 2TL4offmc2uDbuscFYjRZjHbea1ixTHXiAjbT42qbV8j
-PASS  open_guard with no close_guard reverts: open_guard without a matching close_guard  https://explorer.solana.com/tx/49qPPU33JpvnVz4jCwcYg23UC2MUi6afKxCLuTbbBuQT4zaNPRZNpAgCtKKTjA3L2YGmCSFcFrHv7N3HXyUfzFJK?cluster=devnet
-PASS  open → close with no swap in between reverts: Swap spent nothing  https://explorer.solana.com/tx/5ouTZ2HCE9ePXurWqT6vHLW6jEuLq9uGcRR6yT8rb9aTfrvAZ3Q2C4rzyNdG39KuNXo7J7v8zaZVnwQGSY89jJku?cluster=devnet
-PASS  tolerance above 50% is rejected: Tolerance out of range  https://explorer.solana.com/tx/32qUng7QhRv7TxYSPrbvAM8mMqVY7SopbTdgjAaAaEsrny8P6idbVkpnKXkD5rwNCNjR9k1bXTgX1rdrULNRnWEV?cluster=devnet
-PASS  init SOL/USD breaker: ok  https://explorer.solana.com/tx/5TdU3CnWiuUCikVj86JXU4DB5uKFfXF1Wxt1eX84TE6NmTeGgnCogg6zQJAzpvUVkA28NNNMXjympDxEDqhT8kFN?cluster=devnet
-PASS  crank the SOL/USD breaker from the live devnet Pyth account: ok  https://explorer.solana.com/tx/2ckxJhmauVLMZYsPUH3J9jsXCES98q9DZMrMK7W4Z2JxUwQJk9oso5PgR2pgoaRUgVN1nmXBZeTFd16ftVkPddop?cluster=devnet
-      breaker: state=normal reference=$117.28 band=500bps
-PASS  check_breaker passes while Normal: ok  https://explorer.solana.com/tx/Nc5vbgfQfDoirPQCDbMYcYpBGfM9dTu5b9EAnk8HpKq9HCwo3wUGjuprar9RDzCEcF8RtA5Qs1pNvx6aKTqgxue?cluster=devnet
-PASS  post an exchange halt: ok  https://explorer.solana.com/tx/5CCo9KcFD5xLyYTujYY3mmTfwmxaB629Au7o3jCWgsNQCVh4Q8WBFNR1jANYr52FK88meo2XCqXFszJjbTHy8yEQ?cluster=devnet
-PASS  check_breaker fails while halted: The primary exchange has halted this stock  https://explorer.solana.com/tx/383JLrwFNo2iG69bXovMyf52D6McoNWtgXidNVNrebaR2jjMzpDzjUJpPKkuNCewpw27YMfLvxLQqCiNiipaaQsT?cluster=devnet
-PASS  lift the halt: ok  https://explorer.solana.com/tx/665EXhdSzY4EZxoAQcgM2urxxtmrh4R5VpD3KpMDRYHq7CqFYq2hD7DE4Fx5tYfL7RhDyFZbpAMSkXktt8QUaGR8?cluster=devnet
-PASS  check_breaker passes again: ok  https://explorer.solana.com/tx/2KPLKmmugrRBfGCnLgL7WX3MYPFZQn2fzwn5TqDY12nG1AEWuWvSnpRhgaCoYCVJxbrDn9957DpVZJyrQFQMpqQR?cluster=devnet
+PASS  open_guard with no close_guard reverts: open_guard without a matching close_guard  https://explorer.solana.com/tx/3G3n645Mi7wRyHqjK8m5sFK5Hx1zXePk8fkpiNUsUw9tKhMWN8qxKrWXMTcaL6S8Jv1K9qS27NiXsgZZD8NbRqCH?cluster=devnet
+PASS  open → close with no swap in between reverts: Swap spent nothing  https://explorer.solana.com/tx/m5Yc2PSmaQdyuYwauydw1J3dc57fUstgLXczJTiBBQtt7ZUAz462qGc6QLHodfBtpAnc4k6aoCz3ogrXbumGdyp?cluster=devnet
+PASS  tolerance above 50% is rejected: Tolerance out of range  https://explorer.solana.com/tx/CzMf1k3QnXg1rRMXVNvDTaAAfNf6ZBVHWD59Eos9ftVpg4vupHxrbVvFnYKFBCuBM7Fdc6e8Uhuf8467tb6iM3L?cluster=devnet
+PASS  crank the SOL/USD breaker from the live devnet Pyth account: ok  https://explorer.solana.com/tx/5CyUHZapXkjC9WgRymjgt8Puqfjw6yWtJwiuqZdkonPmdN683h1hC9KvHDhtk4Sk2AdiX6yGFfty6m2RGFiHAbKh?cluster=devnet
+      breaker: state=normal reference=$116.38 band=500bps
+PASS  check_breaker passes while Normal: ok  https://explorer.solana.com/tx/BeBhfJZ8nawKB8iVYukFURjavLeDexizY4EKjoKKfkfzAbi5SqXHeLLVUZ51aUn7ezptco8HqgBY6Cy1qPKY732?cluster=devnet
+PASS  post an exchange halt: ok  https://explorer.solana.com/tx/4tDkuyeevRQnS3sa61sCBMnN1J8by7LVdkGuJkGavHVHtMAu9NdEHUxVrtoWD2PjLc4dVLVU5sL2VhM9fDozGMGr?cluster=devnet
+PASS  check_breaker fails while halted: The primary exchange has halted this stock  https://explorer.solana.com/tx/5a1u5RuipMwvfiQvrYUzuwoR59bJjg3vA6rqzpxBhCBsvNima4h3KhbeVDw3dokZpwFqKrvMqVheH873hGde7eFe?cluster=devnet
+PASS  lift the halt: ok  https://explorer.solana.com/tx/5Wm8KMzoWwEuyBq4EwKC1dsjv6PXrBUmjMRwmCQ24ZUs7Z8AgxoEZoc4TCano5MoQcTXf56B51dKQ4zFiUdAiPvu?cluster=devnet
+PASS  check_breaker passes again: ok  https://explorer.solana.com/tx/5Vdon3s5FfaxjkotkwXhWQbDuM5GpqDNha5TuDWfqkfMs2YvQUE7bJwMJdpBKr1VuuPY8n1qMuML8u53jAYxEGpq?cluster=devnet
+PASS  crank_cross records the latest publish time (armed, no reopen): ok  https://explorer.solana.com/tx/4uxPz1wD7Creh9xwXDJsh74d6JJLayDS8CMe6ER6dspQDcT3v4SGeuq4neKYXVxnEuM5rTBni4Uo8dg7HvsECgGV?cluster=devnet
+      cross: last publish 2026-09-25T05:00:30.000Z, crosses=0

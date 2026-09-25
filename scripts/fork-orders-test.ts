@@ -20,10 +20,15 @@ const FEED = "b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593";
 const PRICE = feedAccount(FEED, 1);
 const results: { name: string; pass: boolean; detail: string }[] = [];
 
+// The fork fetches unknown accounts from mainnet; under RPC rate limits that surfaces as
+// "Failed to fetch account", so retry with backoff.
 const rpc = async (method: string, params: unknown[]) => {
-  const j = await (await fetch(FORK, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json();
-  if (j.error) throw new Error(`${method}: ${JSON.stringify(j.error)}`);
-  return j.result;
+  for (let i = 0; ; i++) {
+    const j = await (await fetch(FORK, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json();
+    if (!j.error) return j.result;
+    if (i >= 6 || !String(j.error.data ?? "").includes("Failed to fetch")) throw new Error(`${method}: ${JSON.stringify(j.error)}`);
+    await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+  }
 };
 const forkNow = async () => Number((await conn.getAccountInfo(new PublicKey("SysvarC1ock11111111111111111111111111111111")))!.data.readBigInt64LE(32));
 const travel = async (secs: number) => { await rpc("surfnet_timeTravel", [{ absoluteTimestamp: ((await forkNow()) + secs) * 1000 }]); };
@@ -90,7 +95,10 @@ const rawForUsd = (usd: number, priceUsd: number) => BigInt(Math.floor(((usd / p
 
 (async () => {
   const buyer = Keypair.generate(), seller = Keypair.generate(), mm = Keypair.generate(), weekendBuyer = Keypair.generate(), weekendSeller = Keypair.generate(), guardUser = Keypair.generate();
-  await Promise.all([fund(buyer, 2000, 0), fund(seller, 0, 5), fund(mm, 5000, 50), fund(weekendBuyer, 1000, 0), fund(weekendSeller, 0, 10), fund(guardUser, 1000, 0)]);
+  // Load the mints into the fork first, then fund one wallet at a time.
+  for (let i = 0; i < 5 && !(await conn.getAccountInfo(NVDAX)); i++) await new Promise((r) => setTimeout(r, 1000));
+  await conn.getAccountInfo(USDC);
+  for (const [kp, u, n] of [[buyer, 2000, 0], [seller, 0, 5], [mm, 5000, 50], [weekendBuyer, 1000, 0], [weekendSeller, 0, 10], [guardUser, 1000, 0]] as const) await fund(kp, u, n);
   livePrice = await setPrice();
   // NVDAx scaled-UI multiplier, read the same way the program does
   const mint = (await conn.getAccountInfo(NVDAX))!.data;

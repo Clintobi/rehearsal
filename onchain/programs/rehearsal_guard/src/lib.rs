@@ -12,11 +12,13 @@ pub mod breaker;
 pub mod errors;
 pub mod math;
 pub mod oracle;
+pub mod orders;
 pub mod state;
 pub mod tokens;
 
 use breaker::{Breaker, BreakerChanged, BreakerState};
 use errors::GuardError;
+use orders::*;
 use state::*;
 
 declare_id!("TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE");
@@ -102,6 +104,7 @@ pub mod rehearsal_guard {
         let multiplier = tokens::ui_multiplier_e9(&stock_mint.to_account_info(), clock.unix_timestamp)?;
         let stock_ui = math::ui_e9(stock_raw, stock_mint.decimals, multiplier)?;
 
+        let mut age_secs: i64 = 0;
         let (reference_e6, used_pyth) = match policy.reference {
             Reference::Pyth { feed_id, max_age_secs, max_conf_bps } => {
                 let acc = ctx
@@ -110,6 +113,7 @@ pub mod rehearsal_guard {
                     .as_ref()
                     .ok_or(GuardError::MissingPriceAccount)?;
                 let p = oracle::read_pyth(acc, &feed_id, max_age_secs, max_conf_bps, clock.unix_timestamp)?;
+                age_secs = (clock.unix_timestamp - p.publish_time).max(0);
                 (oracle::to_e6(&p)?, true)
             }
             Reference::Limit { price_e6 } => {
@@ -133,13 +137,16 @@ pub mod rehearsal_guard {
         let gap = math::gap_bps(given_e6, received_fair_e6)?;
         let fill_price_e6 = math::price_e6(stable_e6, stock_ui)?;
 
-        if gap > policy.tolerance_bps as i32 {
+        let effective_tol = (policy.tolerance_bps as i64
+            + policy.drift_bps_per_hour as i64 * age_secs / 3600)
+            .min(MAX_TOLERANCE_BPS as i64) as u16;
+        if gap > effective_tol as i32 {
             msg!(
                 "Guard: fill ${}e-6 vs fair ${}e-6 is {} bps worse, tolerance {} bps",
                 fill_price_e6,
                 reference_e6,
                 gap,
-                policy.tolerance_bps
+                effective_tol
             );
             return err!(GuardError::FillWorseThanFair);
         }
@@ -171,6 +178,7 @@ pub mod rehearsal_guard {
             tolerance_bps: policy.tolerance_bps,
             ui_multiplier_e9: multiplier,
             used_pyth,
+            effective_tolerance_bps: effective_tol,
             slot: clock.slot,
         });
         Ok(())
@@ -245,6 +253,27 @@ pub mod rehearsal_guard {
             });
         }
         Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn place_order(ctx: Context<PlaceOrder>, nonce: u64, feed_id: [u8; 32], side: Side, amount_in: u64, max_gap_bps: u16, at_open: bool, ttl_secs: u32) -> Result<()> {
+        orders::place(ctx, nonce, feed_id, side, amount_in, max_gap_bps, at_open, ttl_secs)
+    }
+
+    pub fn fill_order(ctx: Context<FillOrder>, amount_in: u64, amount_out: u64) -> Result<()> {
+        orders::fill(ctx, amount_in, amount_out)
+    }
+
+    pub fn crank_cross(ctx: Context<CrankCross>, feed_id: [u8; 32]) -> Result<()> {
+        orders::crank_cross(ctx, feed_id)
+    }
+
+    pub fn cross_orders(ctx: Context<CrossOrders>) -> Result<()> {
+        orders::cross_orders(ctx)
+    }
+
+    pub fn cancel_order(ctx: Context<CancelOrder>) -> Result<()> {
+        orders::cancel(ctx)
     }
 
     /// For any venue to CPI before a fill: fails unless the stock is tradeable right now.

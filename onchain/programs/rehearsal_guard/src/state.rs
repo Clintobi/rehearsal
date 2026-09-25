@@ -27,6 +27,9 @@ pub struct Policy {
     /// Most the fill may be worse than fair value: premium paid on a buy,
     /// discount taken on a sell. 100 = 1%.
     pub tolerance_bps: u16,
+    /// Discovery bounds: extra tolerance per hour since the Pyth price was published, so
+    /// a weekend trade isn't judged against Friday's close as if it were live. 0 = off.
+    pub drift_bps_per_hour: u16,
 }
 
 /// Lives only inside one transaction: created by `open_guard`, closed by `close_guard`.
@@ -86,5 +89,7 @@ pub struct GuardedFill {
     pub tolerance_bps: u16,
     pub ui_multiplier_e9: u64,
     pub used_pyth: bool,
+    /// Tolerance actually applied, after discovery bounds.
+    pub effective_tolerance_bps: u16,
     pub slot: u64,
 }

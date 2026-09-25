@@ -108,11 +108,11 @@ async function main() {
   const pythAapl = feedAccount(AAPL_FEED, 1);
   const pyth = (tol: number): Policy => ({ side: "buy", reference: { kind: "pyth", feedId: NVDA_FEED, maxAgeSecs: 600, maxConfBps: 200 }, toleranceBps: tol });
 
-  await guarded("1. Buy $500 NVDAx, Pyth guard 1%: passes", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 500_000_000n, pyth(100), pythNvda, "pass");
+  await guarded("1. Buy $500 NVDAx, Pyth guard 1%: passes", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 500_000_000n, pyth(100), pythNvda, "pass", "Whirlpool,Raydium CLMM");
   await guarded("2. Buy with a fair price 20% below Pyth: reverts", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 500_000_000n,
-    { side: "buy", reference: { kind: "limit", priceE6: 180_000_000n }, toleranceBps: 100 }, undefined, 6000);
-  await guarded("3. Spoofed oracle (AAPL account for NVDA feed): reverts", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 100_000_000n, pyth(100), pythAapl, 6007);
-  await guarded("4. Fake oracle account (USDC mint as price): reverts", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 100_000_000n, pyth(100), USDC, 6006);
+    { side: "buy", reference: { kind: "limit", priceE6: 180_000_000n }, toleranceBps: 100 }, undefined, 6000, "Whirlpool,Raydium CLMM");
+  await guarded("3. Spoofed oracle (AAPL account for NVDA feed): reverts", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 100_000_000n, pyth(100), pythAapl, 6007, "Whirlpool,Raydium CLMM");
+  await guarded("4. Fake oracle account (USDC mint as price): reverts", USDC, TOKEN_PROGRAM, NVDAX, TOKEN_2022_PROGRAM, 100_000_000n, pyth(100), USDC, 6006, "Whirlpool,Raydium CLMM");
   await guarded("5. Sell 1 NVDAx back to USDC, Pyth guard 1%: passes", NVDAX, TOKEN_2022_PROGRAM, USDC, TOKEN_PROGRAM, 100_000_000n,
     { side: "sell", reference: { kind: "pyth", feedId: NVDA_FEED, maxAgeSecs: 600, maxConfBps: 200 }, toleranceBps: 100 }, pythNvda, "pass", "Whirlpool,Raydium CLMM");
   await guarded("6. Buy $300 OPENAI PreStocks capped at mark +5%: reverts", USDC, TOKEN_PROGRAM, OPENAI, TOKEN_2022_PROGRAM, 300_000_000n,

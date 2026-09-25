@@ -8,6 +8,74 @@
   },
   "instructions": [
     {
+      "name": "cancel_order",
+      "discriminator": [
+        95,
+        129,
+        237,
+        240,
+        8,
+        49,
+        223,
+        132
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "order"
+          ]
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "account",
+                "path": "order.nonce",
+                "account": "FairOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "relations": [
+            "order"
+          ]
+        },
+        {
+          "name": "in_mint"
+        },
+        {
+          "name": "owner_in",
+          "writable": true
+        },
+        {
+          "name": "in_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "check_breaker",
       "docs": [
         "For any venue to CPI before a fill: fails unless the stock is tradeable right now."
@@ -224,6 +292,299 @@
       "args": []
     },
     {
+      "name": "crank_cross",
+      "discriminator": [
+        30,
+        29,
+        206,
+        76,
+        22,
+        121,
+        218,
+        191
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "cross",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  114,
+                  111,
+                  115,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "feed_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "price_update"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "feed_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cross_orders",
+      "discriminator": [
+        35,
+        191,
+        12,
+        115,
+        220,
+        155,
+        196,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "cross",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  114,
+                  111,
+                  115,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "cross.feed_id",
+                "account": "OpeningCross"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buy_order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buy_order.owner",
+                "account": "FairOrder"
+              },
+              {
+                "kind": "account",
+                "path": "buy_order.nonce",
+                "account": "FairOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buy_escrow",
+          "writable": true
+        },
+        {
+          "name": "sell_order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sell_order.owner",
+                "account": "FairOrder"
+              },
+              {
+                "kind": "account",
+                "path": "sell_order.nonce",
+                "account": "FairOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "sell_escrow",
+          "writable": true
+        },
+        {
+          "name": "buyer_stock",
+          "docs": [
+            "The buyer's account for the stock."
+          ],
+          "writable": true
+        },
+        {
+          "name": "seller_stable",
+          "docs": [
+            "The seller's account for the stablecoin."
+          ],
+          "writable": true
+        },
+        {
+          "name": "stock_mint"
+        },
+        {
+          "name": "stable_mint"
+        },
+        {
+          "name": "stock_token_program"
+        },
+        {
+          "name": "stable_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "fill_order",
+      "discriminator": [
+        232,
+        122,
+        115,
+        25,
+        199,
+        143,
+        136,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "filler",
+          "signer": true
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.owner",
+                "account": "FairOrder"
+              },
+              {
+                "kind": "account",
+                "path": "order.nonce",
+                "account": "FairOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "relations": [
+            "order"
+          ]
+        },
+        {
+          "name": "in_mint"
+        },
+        {
+          "name": "out_mint"
+        },
+        {
+          "name": "filler_in",
+          "docs": [
+            "Where the filler receives the escrowed input."
+          ],
+          "writable": true
+        },
+        {
+          "name": "filler_out",
+          "docs": [
+            "What the filler pays from."
+          ],
+          "writable": true
+        },
+        {
+          "name": "owner_out",
+          "docs": [
+            "The order owner's account for the output."
+          ],
+          "writable": true
+        },
+        {
+          "name": "price_update"
+        },
+        {
+          "name": "breaker",
+          "optional": true
+        },
+        {
+          "name": "in_token_program"
+        },
+        {
+          "name": "out_token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_in",
+          "type": "u64"
+        },
+        {
+          "name": "amount_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "init_breaker",
       "discriminator": [
         212,
@@ -374,6 +735,175 @@
       ]
     },
     {
+      "name": "place_order",
+      "discriminator": [
+        51,
+        194,
+        155,
+        175,
+        109,
+        130,
+        96,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stock_mint"
+        },
+        {
+          "name": "stable_mint"
+        },
+        {
+          "name": "in_mint",
+          "docs": [
+            "The mint being escrowed: the stablecoin for a buy, the stock for a sell."
+          ]
+        },
+        {
+          "name": "owner_in",
+          "writable": true
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "order"
+              },
+              {
+                "kind": "account",
+                "path": "in_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "in_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "in_token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "nonce",
+          "type": "u64"
+        },
+        {
+          "name": "feed_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "side",
+          "type": {
+            "defined": {
+              "name": "Side"
+            }
+          }
+        },
+        {
+          "name": "amount_in",
+          "type": "u64"
+        },
+        {
+          "name": "max_gap_bps",
+          "type": "u16"
+        },
+        {
+          "name": "at_open",
+          "type": "bool"
+        },
+        {
+          "name": "ttl_secs",
+          "type": "u32"
+        }
+      ]
+    },
+    {
       "name": "set_halt",
       "docs": [
         "Mirrors a primary-exchange halt or resumption (posted from the exchange's halt feed)."
@@ -454,6 +984,19 @@
       ]
     },
     {
+      "name": "FairOrder",
+      "discriminator": [
+        50,
+        46,
+        184,
+        159,
+        243,
+        225,
+        127,
+        77
+      ]
+    },
+    {
       "name": "Guard",
       "discriminator": [
         54,
@@ -477,6 +1020,19 @@
         176,
         95,
         32
+      ]
+    },
+    {
+      "name": "OpeningCross",
+      "discriminator": [
+        13,
+        131,
+        39,
+        53,
+        68,
+        44,
+        151,
+        129
       ]
     },
     {
@@ -508,6 +1064,19 @@
       ]
     },
     {
+      "name": "CrossOpened",
+      "discriminator": [
+        31,
+        253,
+        13,
+        11,
+        212,
+        120,
+        89,
+        153
+      ]
+    },
+    {
       "name": "GuardedFill",
       "discriminator": [
         236,
@@ -518,6 +1087,32 @@
         185,
         247,
         224
+      ]
+    },
+    {
+      "name": "OrderFilled",
+      "discriminator": [
+        120,
+        124,
+        109,
+        66,
+        249,
+        116,
+        174,
+        30
+      ]
+    },
+    {
+      "name": "OrdersCrossed",
+      "discriminator": [
+        93,
+        152,
+        32,
+        154,
+        160,
+        205,
+        225,
+        42
       ]
     }
   ],
@@ -626,6 +1221,31 @@
       "code": 6020,
       "name": "WrongBreaker",
       "msg": "Breaker is for a different feed than the guard policy"
+    },
+    {
+      "code": 6021,
+      "name": "CrossOnly",
+      "msg": "This order waits for the opening cross and can't be filled directly"
+    },
+    {
+      "code": 6022,
+      "name": "OrderExpired",
+      "msg": "Order has expired"
+    },
+    {
+      "code": 6023,
+      "name": "CrossClosed",
+      "msg": "No opening cross is open for this stock"
+    },
+    {
+      "code": 6024,
+      "name": "WrongOrder",
+      "msg": "Orders don't match (side, stock, stablecoin, feed or timing)"
+    },
+    {
+      "code": 6025,
+      "name": "NothingToCross",
+      "msg": "Nothing to cross between these orders"
     }
   ],
   "types": [
@@ -808,6 +1428,115 @@
       }
     },
     {
+      "name": "CrossOpened",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "price_e6",
+            "type": "u64"
+          },
+          {
+            "name": "silence_secs",
+            "type": "i64"
+          },
+          {
+            "name": "window_end",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FairOrder",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "stock_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "stable_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "docs": [
+              "Buy: escrow holds the stablecoin. Sell: escrow holds the stock."
+            ],
+            "type": {
+              "defined": {
+                "name": "Side"
+              }
+            }
+          },
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "remaining_in",
+            "type": "u64"
+          },
+          {
+            "name": "deposited_in",
+            "type": "u64"
+          },
+          {
+            "name": "received_out",
+            "type": "u64"
+          },
+          {
+            "name": "max_gap_bps",
+            "type": "u16"
+          },
+          {
+            "name": "at_open",
+            "type": "bool"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "Guard",
       "docs": [
         "Lives only inside one transaction: created by `open_guard`, closed by `close_guard`."
@@ -929,6 +1658,13 @@
             "type": "bool"
           },
           {
+            "name": "effective_tolerance_bps",
+            "docs": [
+              "Tolerance actually applied, after discovery bounds."
+            ],
+            "type": "u16"
+          },
+          {
             "name": "slot",
             "type": "u64"
           }
@@ -978,6 +1714,139 @@
       }
     },
     {
+      "name": "OpeningCross",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "last_publish_seen",
+            "type": "i64"
+          },
+          {
+            "name": "price_e6",
+            "type": "u64"
+          },
+          {
+            "name": "opened_at",
+            "type": "i64"
+          },
+          {
+            "name": "window_end",
+            "type": "i64"
+          },
+          {
+            "name": "pairs",
+            "type": "u32"
+          },
+          {
+            "name": "crossed_usd_e6",
+            "type": "u128"
+          },
+          {
+            "name": "crosses",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderFilled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "filler",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": {
+              "defined": {
+                "name": "Side"
+              }
+            }
+          },
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "received_out",
+            "type": "u64"
+          },
+          {
+            "name": "fill_price_e6",
+            "type": "u64"
+          },
+          {
+            "name": "reference_price_e6",
+            "type": "u64"
+          },
+          {
+            "name": "gap_bps",
+            "docs": [
+              "Positive: worse than fair (within the order's limit). Negative: price improvement."
+            ],
+            "type": "i32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrdersCrossed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "buy_order",
+            "type": "pubkey"
+          },
+          {
+            "name": "sell_order",
+            "type": "pubkey"
+          },
+          {
+            "name": "price_e6",
+            "type": "u64"
+          },
+          {
+            "name": "stock_raw",
+            "type": "u64"
+          },
+          {
+            "name": "stable_raw",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "Policy",
       "type": {
         "kind": "struct",
@@ -1003,6 +1872,14 @@
             "docs": [
               "Most the fill may be worse than fair value: premium paid on a buy,",
               "discount taken on a sell. 100 = 1%."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "drift_bps_per_hour",
+            "docs": [
+              "Discovery bounds: extra tolerance per hour since the Pyth price was published, so",
+              "a weekend trade isn't judged against Friday's close as if it were live. 0 = off."
             ],
             "type": "u16"
           }

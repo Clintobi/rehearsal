@@ -16,6 +16,7 @@ export type Policy = {
   side: "buy" | "sell";
   reference: { kind: "pyth"; feedId: string; maxAgeSecs: number; maxConfBps: number } | { kind: "limit"; priceE6: bigint };
   toleranceBps: number;
+  driftBpsPerHour?: number; // discovery bounds: extra tolerance per hour of oracle silence
 };
 
 const disc = (name: string) => createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
@@ -35,8 +36,9 @@ export function encodePolicy(p: Policy): Buffer {
     b.writeBigUInt64LE(p.reference.priceE6, 1);
     parts.push(b);
   }
-  const t = Buffer.alloc(2);
-  t.writeUInt16LE(p.toleranceBps);
+  const t = Buffer.alloc(4);
+  t.writeUInt16LE(p.toleranceBps, 0);
+  t.writeUInt16LE(p.driftBpsPerHour ?? 0, 2);
   parts.push(t);
   return Buffer.concat(parts);
 }
@@ -150,6 +152,143 @@ export function decodeBreaker(data: Buffer): BreakerView {
   return { state, bandBps, referenceE6, lastPriceE6, lastCrank, pausedUntil, exchangeHalted, haltReason, haltSince, trips };
 }
 
+// ---------------------------------------------------------------- fair orders
+
+const u64 = (n: bigint) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(n); return b; };
+const feedBytes = (hex: string) => Buffer.from(hex.replace(/^0x/, ""), "hex");
+export const orderPda = (owner: PublicKey, nonce: bigint) =>
+  PublicKey.findProgramAddressSync([Buffer.from("order"), owner.toBuffer(), u64(nonce)], GUARD_PROGRAM_ID)[0];
+export const crossPda = (feedIdHex: string) => PublicKey.findProgramAddressSync([Buffer.from("cross"), feedBytes(feedIdHex)], GUARD_PROGRAM_ID)[0];
+
+export type OrderSpec = {
+  owner: PublicKey; nonce: bigint; feedIdHex: string; side: "buy" | "sell";
+  stockMint: PublicKey; stableMint: PublicKey; stockTokenProgram: PublicKey; stableTokenProgram: PublicKey;
+  amountIn: bigint; maxGapBps: number; atOpen: boolean; ttlSecs: number;
+};
+
+export function placeOrderIx(o: OrderSpec) {
+  const buy = o.side === "buy";
+  const inMint = buy ? o.stableMint : o.stockMint;
+  const inProg = buy ? o.stableTokenProgram : o.stockTokenProgram;
+  const order = orderPda(o.owner, o.nonce);
+  const tail = Buffer.alloc(1 + 8 + 2 + 1 + 4);
+  tail[0] = buy ? 0 : 1; tail.writeBigUInt64LE(o.amountIn, 1); tail.writeUInt16LE(o.maxGapBps, 9); tail[11] = o.atOpen ? 1 : 0; tail.writeUInt32LE(o.ttlSecs, 12);
+  return new TransactionInstruction({
+    programId: GUARD_PROGRAM_ID,
+    data: Buffer.concat([disc("place_order"), u64(o.nonce), feedBytes(o.feedIdHex), tail]),
+    keys: [
+      { pubkey: o.owner, isSigner: true, isWritable: true },
+      { pubkey: order, isSigner: false, isWritable: true },
+      { pubkey: o.stockMint, isSigner: false, isWritable: false },
+      { pubkey: o.stableMint, isSigner: false, isWritable: false },
+      { pubkey: inMint, isSigner: false, isWritable: false },
+      { pubkey: ata(o.owner, inMint, inProg), isSigner: false, isWritable: true },
+      { pubkey: ata(order, inMint, inProg), isSigner: false, isWritable: true },
+      { pubkey: inProg, isSigner: false, isWritable: false },
+      { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
+export function fillOrderIx(o: OrderSpec, filler: PublicKey, amountIn: bigint, amountOut: bigint, priceUpdate: PublicKey, breaker?: PublicKey) {
+  const buy = o.side === "buy";
+  const [inMint, inProg, outMint, outProg] = buy
+    ? [o.stableMint, o.stableTokenProgram, o.stockMint, o.stockTokenProgram]
+    : [o.stockMint, o.stockTokenProgram, o.stableMint, o.stableTokenProgram];
+  const order = orderPda(o.owner, o.nonce);
+  return new TransactionInstruction({
+    programId: GUARD_PROGRAM_ID,
+    data: Buffer.concat([disc("fill_order"), u64(amountIn), u64(amountOut)]),
+    keys: [
+      { pubkey: filler, isSigner: true, isWritable: false },
+      { pubkey: order, isSigner: false, isWritable: true },
+      { pubkey: ata(order, inMint, inProg), isSigner: false, isWritable: true },
+      { pubkey: inMint, isSigner: false, isWritable: false },
+      { pubkey: outMint, isSigner: false, isWritable: false },
+      { pubkey: ata(filler, inMint, inProg), isSigner: false, isWritable: true },
+      { pubkey: ata(filler, outMint, outProg), isSigner: false, isWritable: true },
+      { pubkey: ata(o.owner, outMint, outProg), isSigner: false, isWritable: true },
+      { pubkey: priceUpdate, isSigner: false, isWritable: false },
+      { pubkey: breaker ?? GUARD_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: inProg, isSigner: false, isWritable: false },
+      { pubkey: outProg, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
+export const crankCrossIx = (payer: PublicKey, feedIdHex: string, priceUpdate: PublicKey) => new TransactionInstruction({
+  programId: GUARD_PROGRAM_ID, data: Buffer.concat([disc("crank_cross"), feedBytes(feedIdHex)]),
+  keys: [
+    { pubkey: payer, isSigner: true, isWritable: true },
+    { pubkey: crossPda(feedIdHex), isSigner: false, isWritable: true },
+    { pubkey: priceUpdate, isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ],
+});
+
+export function crossOrdersIx(buy: OrderSpec, sell: OrderSpec) {
+  const bo = orderPda(buy.owner, buy.nonce), so = orderPda(sell.owner, sell.nonce);
+  return new TransactionInstruction({
+    programId: GUARD_PROGRAM_ID, data: disc("cross_orders"),
+    keys: [
+      { pubkey: crossPda(buy.feedIdHex), isSigner: false, isWritable: true },
+      { pubkey: bo, isSigner: false, isWritable: true },
+      { pubkey: ata(bo, buy.stableMint, buy.stableTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: so, isSigner: false, isWritable: true },
+      { pubkey: ata(so, sell.stockMint, sell.stockTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: ata(buy.owner, buy.stockMint, buy.stockTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: ata(sell.owner, sell.stableMint, sell.stableTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: buy.stockMint, isSigner: false, isWritable: false },
+      { pubkey: buy.stableMint, isSigner: false, isWritable: false },
+      { pubkey: buy.stockTokenProgram, isSigner: false, isWritable: false },
+      { pubkey: buy.stableTokenProgram, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
+export function cancelOrderIx(o: OrderSpec) {
+  const buy = o.side === "buy";
+  const inMint = buy ? o.stableMint : o.stockMint;
+  const inProg = buy ? o.stableTokenProgram : o.stockTokenProgram;
+  const order = orderPda(o.owner, o.nonce);
+  return new TransactionInstruction({
+    programId: GUARD_PROGRAM_ID, data: disc("cancel_order"),
+    keys: [
+      { pubkey: o.owner, isSigner: true, isWritable: true },
+      { pubkey: order, isSigner: false, isWritable: true },
+      { pubkey: ata(order, inMint, inProg), isSigner: false, isWritable: true },
+      { pubkey: inMint, isSigner: false, isWritable: false },
+      { pubkey: ata(o.owner, inMint, inProg), isSigner: false, isWritable: true },
+      { pubkey: inProg, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
+export function decodeOrder(data: Buffer) {
+  let o = 8;
+  const owner = new PublicKey(data.subarray(o, o + 32)); o += 32;
+  const nonce = data.readBigUInt64LE(o); o += 8 + 32 + 32 + 32;
+  const side = data[o] === 0 ? "buy" : "sell"; o += 1 + 32;
+  const remainingIn = data.readBigUInt64LE(o); o += 8;
+  const depositedIn = data.readBigUInt64LE(o); o += 8;
+  const receivedOut = data.readBigUInt64LE(o); o += 8;
+  const maxGapBps = data.readUInt16LE(o); o += 2;
+  const atOpen = data[o] === 1;
+  return { owner, nonce, side, remainingIn, depositedIn, receivedOut, maxGapBps, atOpen };
+}
+
+export function decodeCross(data: Buffer) {
+  let o = 8 + 32;
+  const lastPublishSeen = Number(data.readBigInt64LE(o)); o += 8;
+  const priceE6 = data.readBigUInt64LE(o); o += 8;
+  const openedAt = Number(data.readBigInt64LE(o)); o += 8;
+  const windowEnd = Number(data.readBigInt64LE(o)); o += 8;
+  const pairs = data.readUInt32LE(o); o += 4 + 16;
+  const crosses = data.readUInt32LE(o);
+  return { lastPublishSeen, priceE6, openedAt, windowEnd, pairs, crosses };
+}
+
 // Jupiter /swap-instructions response, trimmed to what we use.
 type JupIx = { programId: string; accounts: { pubkey: string; isSigner: boolean; isWritable: boolean }[]; data: string };
 export type JupSwapIxs = {
@@ -205,4 +344,9 @@ export const GUARD_ERRORS: Record<number, string> = {
   6018: "Circuit breaker not cranked recently",
   6019: "Breaker parameters out of range",
   6020: "Breaker is for a different feed",
+  6021: "Order waits for the opening cross",
+  6022: "Order expired",
+  6023: "No opening cross is open",
+  6024: "Orders don't match",
+  6025: "Nothing to cross",
 };

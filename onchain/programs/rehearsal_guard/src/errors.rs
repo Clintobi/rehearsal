@@ -44,4 +44,14 @@ pub enum GuardError {
     BadBreakerParams,
     #[msg("Breaker is for a different feed than the guard policy")]
     WrongBreaker,
+    #[msg("This order waits for the opening cross and can't be filled directly")]
+    CrossOnly,
+    #[msg("Order has expired")]
+    OrderExpired,
+    #[msg("No opening cross is open for this stock")]
+    CrossClosed,
+    #[msg("Orders don't match (side, stock, stablecoin, feed or timing)")]
+    WrongOrder,
+    #[msg("Nothing to cross between these orders")]
+    NothingToCross,
 }

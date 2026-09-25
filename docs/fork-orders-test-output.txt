@@ -1,0 +1,38 @@
+NVDA $224.55, NVDAx multiplier 1.001701196801074
+
+PASS  1. buyer rests a $500 NVDAx order, max 0.5% over Pyth
+      ok
+PASS  2. market maker fills $200 at 2% over Pyth: rejected
+      Blocked: the fill was worse than fair value by more than your tolerance
+PASS  3. market maker fills $200 at 0.2% over Pyth: accepted
+      ok fill $225.00 vs Pyth $224.55, gap 20 bps
+PASS  4. a better quote fills the rest below Pyth: price improvement goes to the buyer
+      ok fill $224.33 vs Pyth $224.55, gap -9 bps
+PASS  5. order fully filled; buyer holds the NVDAx
+      remaining 0, received 2.2262351221286814 NVDAx shown
+PASS  6. seller's order filled 0.2% under Pyth (inside a 0.5% limit)
+      ok fill $224.10 vs Pyth $224.55, gap 20 bps
+PASS  7. Friday: buyer places an at-open order
+      ok
+PASS  8. Friday: seller places an at-open order
+      ok
+PASS  9. at-open orders can't be picked off by a filler over the weekend
+      Order waits for the opening cross
+PASS  10. a crank during the closed market doesn't open a cross
+      crosses=0
+PASS  11. first Pyth print after 3h of silence opens the cross at that price
+      cross price $231.29 (Friday $224.55), window 298s
+PASS  12. cross matches the two orders at the single cross price
+      ok buyer got 2.0034 NVDAx, seller got $463.36, implied $231.29
+PASS  13. implied price equals the cross price (to the cent)
+      $231.2865 vs $231.2865
+PASS  14. after the 5-minute window, crossing is closed
+      No opening cross is open
+PASS  15. buyer cancels; unfilled USDC comes back
+      ok returned $136.64 of $136.64 left
+PASS  16. stale oracle, fixed 1% tolerance: the buy is blocked
+      Blocked: the fill was worse than fair value by more than your tolerance
+PASS  17. same trade with discovery bounds (+50 bps/hour × 4h = 3%): allowed
+      ok
+
+17/17 passed

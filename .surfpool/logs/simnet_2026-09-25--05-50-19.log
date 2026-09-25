@@ -1,0 +1,145 @@
+[2026-09-25--05-50-19 INFO actix_server::builder] starting 5 workers
+[2026-09-25--05-50-19 INFO actix_server::server] Tokio runtime found; starting in existing Tokio runtime
+[2026-09-25--05-50-19 INFO actix_server::server] starting service: "actix-web-service-127.0.0.1:18488", workers: 5, listening on: 127.0.0.1:18488
+[2026-09-25--05-50-20 INFO parity_ws] Listening for new connections on 127.0.0.1:8900.
+[2026-09-25--05-50-21 INFO surfpool::cli::simnet] Datasource connection successful. Epoch 1042 / Slot index 105601 / Slot 450249601.
+[2026-09-25--05-50-21 INFO surfpool::cli::simnet] No keypair found at provided path /Users/mac/.config/solana/id.json; skipping airdrop for that keypair
+[2026-09-25--05-50-27 INFO surfpool::cli::simnet] Account 2TL4offmc2uDbuscFYjRZjHbea1ixTHXiAjbT42qbV8j updated.
+[2026-09-25--05-50-47 INFO surfpool::cli::simnet] Account EDGMC5kxFxGk4ixsNkGt8bW7QL5hDMXnbwaZvYMwNfzF updated.
+[2026-09-25--05-50-47 INFO surfpool::cli::simnet] Account YbbRLkvenrocjGPGyoQE4wjnvYzTgfsk38NFmcYK7a5 updated.
+[2026-09-25--05-50-47 INFO surfpool::cli::simnet] Account zkexuyPRdyTVbZqEAREueqL2xvvoBhRgth9xGSc1tMN updated.
+[2026-09-25--05-50-47 INFO surfpool::cli::simnet] Account 7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz updated.
+[2026-09-25--05-50-47 INFO surfpool::cli::simnet] Account AnAP9zPV4KL7czAPQbFhpDKV2tx7g4UGNbK9wvXwjaRo updated.
+[2026-09-25--05-50-47 INFO surfpool::cli::simnet] Account STk5Xj8hdAx3sTzmtJ3QysKkq6X2A3yj73JtxttiRyk updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account bn1hKNURMGQaQoEVxahcEAcqiX3NwRs6hgKKNSLeKxH updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account 2GCrNXbzmt4xrwdcKS2RdsLzsgu4V5zHAemW57pcHT6a updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account LTDSzjZKFJMKHYpNycG1FrWwGGTaFFwqEFjB5GGLNVD updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account rexav5eNTUSNT1K2N7cfRjnthwhcP5BC25v2tA4rW4h updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account b1sgUiJ3qu7hYm3tNDyyqZNQd6gLGJmJppnLNa93PCQ updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account VAT9huvhPjRN9cyrPytq9rwvEJ3J4ADtjdncgZRyANJ updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account 76dHtohc2s5dR3ahJyBxs7eJJVipFkaPdih9CLgTTb4B updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account bn2oPgpkzQPT3tohMaAsMVGjhDmmDa4jCaVPqCFmtxM updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account 61BtM7BkDEE8Yq5fskEVAQT9mYA8qCejJWoLe5apqg81 updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account ptokFjwyJtrwCa9Kgo9xoDS59V4QccBGEaRFnRPnSdP updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account 7bTK6Jis8Xpfrs8ZoUfiMDPazTcdPcTWheZFJTA5Z6X4 updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account vcmrbYbiMVKaq1snKP6eCacNDcr6qZvpCNUjmk6gxvZ updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account 5cC3foj77CWun58pC51ebHFUWavHWKarWyR5UUik7dnC updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account vcmrw431aNM8ngQ46derkZXipoTGQdbHkEygBDh12dA updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account zkdoVwnSFnSLtGJG7irJPEYUpmb4i7sGMGcnN6T9rnC updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account 9ypxGLzkMxi89eDerRKXWDXe44UY2z4hBig4mDhNq5Dp updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account Eg7tXEwMZzS98xaZ1YHUbdRHsaYZiCsSaR6sKgxreoaj updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account DeS7sR48ZcFTUmt5FFEVDr1v1bh73aAbZiZq3SYr8Eh8 updated.
+[2026-09-25--05-50-53 INFO surfpool::cli::simnet] Account GDH5TVdbTPUpRnXaRyQqiKUa7uZAbZ28Q2N9bhbKoMLm updated.
+[2026-09-25--05-50-57 INFO surfpool::cli::simnet] Account 6aHuNsUmwSzCEMjrBzBCYaxHAyAcQBjVES92JigHBDuC updated.
+[2026-09-25--05-50-57 INFO surfpool::cli::simnet] Account JE86WkYvTrzW8HgNmrHY7dFYpCmSptUpKupbo2AdQ9cG updated.
+[2026-09-25--05-50-57 INFO surfpool::cli::simnet] Account 4a6f7o7iTcA8hRDCrPLkSatnt5Ykxiu36wo5p1Tt12wC updated.
+[2026-09-25--05-50-57 INFO surfpool::cli::simnet] Account 6sPDzwyARRExKH52LECxcGoqziH8G7SZofwuxi8Ja331 updated.
+[2026-09-25--05-50-57 INFO surfpool::cli::simnet] Account 4WeHX6QoXCCwqbSFgi6dxnB6QsPo6YApaNTH7P4MLQ99 updated.
+[2026-09-25--05-50-57 INFO surfpool::cli::simnet] Account disCA4efguFL6Wqa4pGdG7jpjC7C5uiKzKnhEBqchBe updated.
+[2026-09-25--05-50-58 INFO parity_ws::io] Accepted a new tcp connection from 127.0.0.1:50778.
+[2026-09-25--05-50-58 WARN surfpool::cli::simnet] Websocket method 'slots_updates_subscribe' is uninmplemented
+[2026-09-25--05-51-32 INFO surfpool::cli::simnet] Account DPS1otaji2vmkLXVxVF9EBh7UVAs3rr3jFCxYWL9hbyL updated.
+[2026-09-25--05-51-34 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-51-34 INFO surfpool::cli::simnet] Account 8bkkpwiyB1q6QutMTJWjJFdbS2TDLXsmA5u4UU3MtmvK updated.
+[2026-09-25--05-51-36 INFO surfpool::cli::simnet] Account DBmHWCVEGCzZ3zDNr9WzRaMmSqCjcixMh78imXfno9qJ updated.
+[2026-09-25--05-51-36 INFO surfpool::cli::simnet] Account 7UHym4FLCpJSoEmrCK2zxEZGKQja8Z3oBQBenjUJtEy4 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 74QsiZ4iszuKy7n6YVG3qm5jus2NKBc6E67avP379Lb6 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 4Ec7ZxZS6Sbdg5UGSLHbAnM7GQHp2eFd4KYWRexAipQT updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 5VETJ8h3p4JrESYrzhjTDAWPEjDjfcnduqe9CjxgqBNd updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 8Vy5Rjb9vg5nLb8L1r4Di8p9py5BTkp8UJSMHG8AD2zs updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account So11111111111111111111111111111111111111112 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 9FKkwfsEPg9QqhrGdGCkd2NzpLv4kcw2Zz3rZP1AaYhp updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 3LEzjm337jeqbiATMUxsxcG9pkq3dTVmjeJUSyjxok4w updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account Gh1dmttfjcc9r8ak7HUBDc4t2JEAgHrMbNPrgLfS8chX updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 2nbyyQ7NEGS6nbYXCu9wSHx12AVXEhEmf3StidtBZ6i7 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account BX3w3ZzeNUqUYLpaEo1oha5fzsLubMCh7nd5WwyU8uVu updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account GMCJvYGf5Ex2ARiMquaBDqU6iKM8uiEQkB8jCnoNfHpC updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account So11111111111111111111111111111111111111112 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 8ncU5YW1CQwvr4gs7buH57bW58e86TDau4STrCJBuz8z updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account EunHLeqeJKvxnCPQSytnBP63HJVk2fbHceiKKpngyAo8 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 124gUYwjVnJQ4sJsFug9gHPzPLEtwCbAQC5LkbaDgx9s updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account goonuddtQRrWqqn5nFyczVKaie28f3kDkHWkHtURSLE updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account 7yecFG22heommABQ5svcbQLK1Ua4ZrJsHPiktZ17jfm3 updated.
+[2026-09-25--05-51-38 INFO surfpool::cli::simnet] Account BNrK9LpEn65QA4TyBLVSMdngW3XHj3xLfFPwGdCBv8wV updated.
+[2026-09-25--05-51-42 INFO surfpool::cli::simnet] Account 2Lvj7QkiAWMHziSQbP4yZcoYJPLTESKUWdscnpbj7Ham updated.
+[2026-09-25--05-51-51 INFO surfpool::cli::simnet] Account 7yD7gfXv49SFxhx9uTc11dEd7Nj98rGWeYMdZJgheZbG updated.
+[2026-09-25--05-51-51 INFO surfpool::cli::simnet] Account So11111111111111111111111111111111111111112 updated.
+[2026-09-25--05-51-51 INFO surfpool::cli::simnet] Account HgFLBWQugxt6qbPaWiwXjrqauXdQmcpMV6H6t8ttD8s1 updated.
+[2026-09-25--05-51-51 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-51-51 INFO surfpool::cli::simnet] Account FzvRbXDdrsYVMa9KohXyQytWNAZAo4PsF8yujDH7KCfG updated.
+[2026-09-25--05-51-51 INFO surfpool::cli::simnet] Account 7UnpT4Zk1kWzKszWkX58jToMXAXayUXghKvjQD67yQA5 updated.
+[2026-09-25--05-51-51 INFO surfpool::cli::simnet] Account 3TK9D8aoBFYjYZtKCjciPrVrRStsnvo7KmpcJqDavpaU updated.
+[2026-09-25--05-51-51 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 5: custom program error: 0x1771
+[2026-09-25--05-52-00 INFO surfpool::cli::simnet] Account 8BNMiq1CM4g3zZbhbWQHn27631FPAJLGMF2c52y3Vs5i updated.
+[2026-09-25--05-52-01 INFO surfpool::cli::simnet] Account D9uk39pqZMcnmtPP9WeC8cREUpKZmyXLga9mSQ79SphW updated.
+[2026-09-25--05-52-01 INFO surfpool::cli::simnet] Account 8FnX3xo2yYw3EUE6w3nQA4GfXGS9wpK6oj3veJpbFzLo updated.
+[2026-09-25--05-52-01 INFO surfpool::cli::simnet] Account So11111111111111111111111111111111111111112 updated.
+[2026-09-25--05-52-01 INFO surfpool::cli::simnet] Account ATRsNGv2nDw7hSMfkUTBoVUDsFDwN7po7KbecyiGWNB4 updated.
+[2026-09-25--05-52-01 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-52-01 INFO surfpool::cli::simnet] Account 2Y7HATmn9aJBcxCskE5V2U2epmjvkZmB51zTJBbhj4cU updated.
+[2026-09-25--05-52-01 INFO surfpool::cli::simnet] Account 42snJ7ip4zKKsip3EtaMoBo8wzoRsQJSzgUSFXAVJFfG updated.
+[2026-09-25--05-52-01 ERROR litesvm::accounts_db] Error encountered when calling ProgramCacheEntry::new() for bpf_loader_upgradeable: FailedToParse("invalid file header")
+[2026-09-25--05-52-01 ERROR surfpool::cli::simnet] Internal error: "Failed to set account BiSoNHVpsVZW2F7rx2eQ59yQwKxzU5NvBcmKshCSUypi: Internal error: \"LiteSVM error: invalid account data for instruction\""
+[2026-09-25--05-52-03 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 5: Unsupported program id
+[2026-09-25--05-52-05 INFO surfpool::cli::simnet] Account 4Mf6gV4SqbHVXE5h92dTDnTPWeKioMVmpupk6HBUye2L updated.
+[2026-09-25--05-52-05 INFO surfpool::cli::simnet] Account FtgQZvpL4U9SYUXdHLqqACH2XU8bXgRdqjzFF1D6SE1W updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account 4rJggoVMajEUtipev1XhSMjESYk8Zibz6CDHPtUe1mem updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account So11111111111111111111111111111111111111112 updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account 5gTazA5CPKrPZ1vSxXpbmLdmVZrvPYJ9CMnXUfNYoMJZ updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account 3raYFbqrBhFLngfWGKbA2Y7TygfewVrnCsEy4AmfxuRs updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account EEUNhHsRoUVgJUFpkupmdF4v7uLUw1zhYLp7u9s8zFqG updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account 5dRazfLSjTq15r7XL6b5WBGTFtria1EHZQS7VZr7BD5V updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account F9xyBfChZ2uCv7aQujJCe6gKVx7ydCmxfh2ZWrNwFoKr updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account CUGzNZjoK4RbUMKCJ6hhPvby4KPXxJrfWiWaTgvMVP2e updated.
+[2026-09-25--05-52-06 INFO surfpool::cli::simnet] Account 4V7iPfdqmjs2aAkS3BUDoRd9MuDBoTm5tETLC7fEDkjd updated.
+[2026-09-25--05-52-07 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 7: custom program error: 0x1776
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account 2Se6p8VJTcsPWZ2RyaSVCkE5L5ocdFqA5Vj2CEGDZ1rW updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account 4J9UJDSSn25i84r8TVEgpQtfQSxyQhYnNxwBULhGRBdT updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account 9VJRZWagVaCL2eRNpcV2zYfCSKNzEbdbL9MoBEYnrRv1 updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account ExnVr11uZZU9Bd8s71CtitGCt86H1T6BARRtvmerZ1tu updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account 6R4r93V5fcMzc13CL2enEepDSYcr4Qx3ptZBDwudTXCo updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account FaHQ9Ny2U2RkcdapsKVr9pvnt4Mg7n92NdKnvyRzuibH updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account 5TSHEwRAgHLTYkchrUNiKUL2RvuZgdh3vExbMptWrHoX updated.
+[2026-09-25--05-52-08 INFO surfpool::cli::simnet] Account CbTCXA1r93p8p1v8Uhp6Ufoe15FwsmzimWY8AG3TbyxR updated.
+[2026-09-25--05-52-10 INFO surfpool::cli::simnet] Account zB2vDMHatDhYdTPGG5a4h6CZrDR5ravWa1TwqE5eFdJ updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account 6Gi6cz3fsvtD4n7v2xNx3dY7JEQhRpjPQJjmQruEc3bP updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account FuwH9eyEi9RApviaNqUhxZhEY6i455Ca2xQmNkjrfTU updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account 9v1o9K285AD3dctfzFNoa2MAyRj9Q2fcpdSrqCWQjKZb updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account 3J6kEW1H2cHRtLR7W6azgkoFCxbS8bkRVSth6Rmy2Cdv updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account AntpWAd9rqm9MJ974fGDmrfHMywtJ7ajvjjUxi2w9pgy updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account G92J4ZFggKZ9LbsQ2zBpajRvRto7ed7uRuJJqWsX4BhJ updated.
+[2026-09-25--05-52-11 INFO surfpool::cli::simnet] Account MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms updated.
+[2026-09-25--05-52-11 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 4: custom program error: 0x1770
+[2026-09-25--05-52-13 INFO surfpool::cli::simnet] Account 6HG36ES5jpXd2yVCBDYmgr8uVMTAXoQVB9QJvRdarioB updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account 4QRBQXLhCh45dgzs3GrruXyYd7TkmKPHkRwrVw28tFt1 updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account GnbC5qqSJfH9ARwuTSoY9yQaHPubFCdCfP8jEzfLqgkq updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account FfeasecR48Ay8V6VULZpFBbQfSosHL7cTUPSa799SiX4 updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account HZcJwcJ2njPDxZtpPoKnF8v2w9QAx2rS7TdJPSRkbEhu updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account Chroid93DKzmgDYmCJELZ6CNC3SZ8WfRXzCkcqVtRy1r updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account GM56syqs18fNYmVgQJjuGUtwxiWRrt6JyFJsmcqSAYqk updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account ESEQ4k8U39d5xmu53GXT56Fvh3DPTAtVHau9MjuRFgNA updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account G974aXt5g12Qa3CFVNTCjMTpuKjT8ZYnb8fRrP5XPW8n updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh updated.
+[2026-09-25--05-52-14 INFO surfpool::cli::simnet] Account D1ZN9Wj1fRSUQfCjhvnu1hqDMT7hzjzBBpi12nVniYD6 updated.
+[2026-09-25--05-52-17 ERROR surfpool::cli::simnet] Transaction execution failed: Error processing Instruction 1: custom program error: 0x1771
