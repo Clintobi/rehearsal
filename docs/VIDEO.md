@@ -4,7 +4,7 @@ Record at 1440×900 with your own voice. Say the numbers the screen shows on the
 
 Before recording:
 - `MAINNET_RPC=<helius> scripts/fork-up.sh` in one terminal, with the font enlarged.
-- Have these tabs open: `/report`, the home page, the Blink on dial.to, and the devnet program on Solana Explorer.
+- Have these tabs open: `/report`, the home page, the live Action at `https://rehearsal-stocklana.vercel.app/api/actions/rehearse/OPENAI`, and the devnet program on Solana Explorer. The dial.to public registry listing was blocked (`DEPLOYMENT_PAUSED` / 503). Do not show a registry page.
 
 ## 0:00 The hook (20s)
 Screen: `/report`, top.

@@ -13,6 +13,8 @@ Built for STOCKLANA (Solana Foundation, Sept 2026): Main track, PreStocks bounty
 
 Live app: https://rehearsal-stocklana.vercel.app
 
+Judge walkthrough (check, protect, prove): [DEMO.md](DEMO.md)
+
 ## Open execution report: a Rule 605 for tokenized stocks
 
 On 17 Sep 2026 the SEC exempted on-chain AMM venues for tokenized stocks from Rules 605, 610, 611, 612 and 613, and imposed no best-execution standard (Rel. 34-106402). Rule 605 is the rule that makes US brokers publish how well they fill customer orders. Rehearsal publishes the equivalent for Solana, in the open: https://rehearsal-stocklana.vercel.app/report
@@ -60,17 +62,21 @@ Closing cross: 12/12 on the fork (`scripts/fork-close-test.ts`, output in `docs/
 
 ## Verifiable report
 
-Every report update publishes the exact graded-fill dataset (`fills.json`, one row per fill with its transaction signature) and writes the dataset's SHA-256 to Solana devnet in a memo transaction. `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills, using the same integer math as the ZK program.
+Every report update publishes the exact graded-fill dataset (`fills.json`, one row per fill with its transaction signature) and writes the dataset's SHA-256 to Solana devnet in a memo transaction. `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills, using the same integer math as the SP1 program.
 
-`zk/` holds an SP1 program that recomputes the report from raw fills without trusting any precomputed gap. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares.
+`zk/` holds an SP1 program that recomputes the report from raw fills. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares.
 
-**ZK-verified on Solana.** The Groth16 proof over the 310-fill snapshot (`zk/proof/`, generated on a GitHub Actions runner by `.github/workflows/zk-proof.yml`) is verified on-chain by the program's `attest_report` instruction. It rebuilds SP1 v6's five public inputs (program vkey hash, masked sha256 of the public values, exit code, recursion vk root, nonce) and runs the pairing check with Solana's alt_bn128 syscalls, in 110,458 compute units. It then stores a `ReportAttestation` with the proven numbers. The same proof submitted with a different dataset hash is rejected with `ProofInvalid`. See `docs/zk-onchain-output.txt`. `zk/solana-convert` converts SP1's gnark proof and key into the syscall format and verifies off-chain first. 
+**What prove means for this submission.** The live grades on `/report`, plus the SP1 `--execute` check, which already passed. From `zk/script`, `cargo run --release -- --execute` prints the public values in [DEMO.md](DEMO.md). That is the check. It is not a Groth16 proof, and it is not a Succinct Prover Network proof.
+
+**Later, not this submission.** Local Groth16 (Docker, after submit) and the Succinct Prover Network (when the requester account has PROVE credits) are the optional next step. The program has an `attest_report` instruction for that later proof. See [zk/README.md](zk/README.md).
 
 ## Blink: the check where traders already are
 
 Any token has a Solana Action at `/api/actions/rehearse/<SYMBOL>`, and `/rehearse/<SYMBOL>` is a shareable link that `actions.json` maps to it. The card image is rendered live (`/api/actions/card/<SYMBOL>`) with the current gap vs fair value. The buttons build a buy for the clicking wallet, re-quoted at click time, with the transfer fee counted in slippage. When the token looks bad, the buttons say "Buy anyway". When the guard is live on the cluster, the Blink's buy runs inside it.
 
-Try it: https://dial.to/?action=solana-action:https://rehearsal-stocklana.vercel.app/api/actions/rehearse/OPENAI
+The Action is live: https://rehearsal-stocklana.vercel.app/api/actions/rehearse/OPENAI
+
+The dial.to public registry listing was blocked (`DEPLOYMENT_PAUSED`, HTTP 503). Email has already been sent to Dialect. There is no public registry listing.
 
 `scripts/fork-blink-test.ts` clicks the Blink like a wallet on the mainnet fork. NVDAx filled inside the guard. OPENAI was blocked on-chain at 39.35% over mark.
 
