@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Rehearsal } from "@/lib/rehearse";
 import { useBoard, useFetch } from "@/lib/hooks";
-import { compactUsd, gapTone, pct, price, usd } from "@/lib/format";
+import { gapTone, pct, price, usd } from "@/lib/format";
 import { cx, Logo, Pill, Segmented, Skeleton, ThemeToggle, TokenIcon, toneText } from "@/components/ui";
 import Footer from "@/components/Footer";
+import type { Forecast } from "@/lib/weekend";
 
 const DEMO = [
   { symbol: "NVDAx", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", label: "NVIDIA" },
@@ -13,32 +14,33 @@ const DEMO = [
 ] as const;
 
 const REPORT_URL = process.env.NEXT_PUBLIC_REPORT_URL ?? "https://gist.githubusercontent.com/Clintobi/7b15feb84f4634fa5ef05eec7e248f9c/raw/report.json";
-type ReportLite = { by_size: { key: string; median_gap_bps: number | null; graded: number }[] };
+type ReportLite = { coverage: { fills: number }; overall: { xstocks: { median_gap_bps: number | null; p90_gap_bps: number | null; within_25bps: number | null } } };
+
+const btn = "inline-flex h-11 items-center justify-center rounded-lg px-5 text-[15px] font-medium transition-colors";
 
 export default function Landing() {
   return (
     <div className="min-h-dvh bg-bg">
-      <header className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/" aria-label="Rehearsal home"><Logo /></Link>
-        <nav aria-label="Site" className="hidden items-center gap-1 sm:flex">
-          <Link href="/app/markets" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Markets</Link>
-          <Link href="/app/private" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Pre-IPO</Link>
-          <Link href="/report" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">Report</Link>
-          <Link href="/agents" className="rounded-full px-3 py-2 text-[14px] font-medium text-muted hover:text-ink">For agents</Link>
-        </nav>
-        <div className="ml-auto flex items-center gap-2">
-          <ThemeToggle />
-          <Link href="/app" className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-[14px] font-semibold text-on-brand transition-colors hover:bg-brand-hover">Open app</Link>
+      <header className="sticky top-0 z-[var(--z-sticky)] border-b border-line bg-bg/90 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-8 px-4 sm:px-6">
+          <Link href="/" aria-label="Rehearsal home"><Logo /></Link>
+          <nav aria-label="Site" className="hidden items-center gap-6 sm:flex">
+            <Link href="/app/markets" className="text-[14px] font-medium text-muted hover:text-ink">Markets</Link>
+            <Link href="/app/earn" className="text-[14px] font-medium text-muted hover:text-ink">Earn</Link>
+            <Link href="/report" className="text-[14px] font-medium text-muted hover:text-ink">Report</Link>
+          </nav>
+          <div className="ml-auto flex items-center gap-1.5">
+            <ThemeToggle />
+            <Link href="/app" className="inline-flex h-9 items-center rounded-lg bg-brand px-3.5 text-[14px] font-medium text-on-brand transition-colors hover:bg-brand-hover">Open app</Link>
+          </div>
         </div>
       </header>
 
       <main>
         <Hero />
-        <LiveLine />
-        <HowItWorks />
-        <ReportTeaser />
-        <Weekend />
-        <Builders />
+        <Ticker />
+        <Product />
+        <ReportBand />
         <Closing />
       </main>
       <Footer />
@@ -46,32 +48,30 @@ export default function Landing() {
   );
 }
 
-const cta = "inline-flex h-12 items-center rounded-full px-5 text-[15px] font-semibold transition-colors";
-
 function Hero() {
   return (
-    <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-10 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-28 lg:pt-20">
+    <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-[1fr_440px] lg:gap-20 lg:pb-24 lg:pt-24">
       <div>
-        <h1 className="rise text-[clamp(2.5rem,5.6vw,4.5rem)] font-semibold leading-[1.02] tracking-[-0.035em]">
-          Know what you&apos;re buying before you buy it.
+        <h1 className="rise text-[clamp(2.4rem,5vw,3.9rem)] font-semibold leading-[1.04] tracking-[-0.035em]">
+          Trade tokenized stocks at the real price.
         </h1>
-        <p className="rise mt-6 max-w-[48ch] text-[18px] leading-relaxed text-ink-2 [animation-delay:90ms]">
-          Every tokenized stock gets a passport: what the token really is, whether its price can be trusted right now, and how much you could sell. Then the trade cancels on-chain if the fill comes in worse than fair.
+        <p className="rise mt-5 max-w-[44ch] text-[18px] leading-relaxed text-muted [animation-delay:80ms]">
+          Every order is checked against the live stock price. Anything worse than fair cancels on-chain.
         </p>
-        <div className="rise mt-9 flex flex-wrap gap-3 [animation-delay:160ms]">
-          <Link href="/app" className={cx(cta, "bg-brand text-on-brand hover:bg-brand-hover")}>Check a trade</Link>
-          <Link href="/report" className={cx(cta, "bg-surface-2 text-ink hover:bg-line")}>See how trades are filling</Link>
+        <div className="rise mt-8 flex flex-wrap gap-3 [animation-delay:140ms]">
+          <Link href="/app" className={cx(btn, "bg-brand text-on-brand hover:bg-brand-hover")}>Open app</Link>
+          <Link href="/report" className={cx(btn, "border border-line bg-panel text-ink hover:border-line-strong")}>Execution report</Link>
         </div>
-        <p className="rise mt-8 text-[13px] text-muted [animation-delay:220ms]">Know what you hold. Know what you paid. Know you can get out. · xStocks and PreStocks on Solana</p>
+        <p className="rise mt-8 text-[13px] text-muted [animation-delay:200ms]">xStocks and PreStocks on Solana. Self-custody, no account.</p>
       </div>
-      <div className="rise [animation-delay:120ms]"><LivePreview /></div>
+      <div className="rise [animation-delay:100ms]"><LivePreview /></div>
     </section>
   );
 }
 
-// The hero image is the product itself, running on live data.
+// The product itself on live data: what a $1,000 buy costs right now.
 function LivePreview() {
-  const [pick, setPick] = useState<(typeof DEMO)[number]["symbol"]>("OPENAI");
+  const [pick, setPick] = useState<(typeof DEMO)[number]["symbol"]>("NVDAx");
   const [data, setData] = useState<Record<string, Rehearsal>>({});
   useEffect(() => {
     let alive = true;
@@ -89,207 +89,169 @@ function LivePreview() {
   const fair = p != null && Math.abs(p) < 0.25;
 
   return (
-    <figure className="rounded-[14px] border border-line bg-panel p-5 sm:p-6" aria-label="Live example of a Rehearsal price check">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium text-muted">Buying $1,000 right now</span>
-        <div className="w-48"><Segmented label="Example stock" value={pick} onChange={setPick} options={DEMO.map((d) => ({ value: d.symbol, label: d.label }))} /></div>
+    <figure className="rounded-xl border border-line bg-panel shadow-card" aria-label="Live price check">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+        <span className="text-[13px] text-muted">Buying $1,000 now</span>
+        <div className="w-44"><Segmented size="sm" label="Example stock" value={pick} onChange={setPick} options={DEMO.map((d) => ({ value: d.symbol, label: d.label }))} /></div>
       </div>
-      {!r ? (
-        <div className="mt-6 space-y-3"><Skeleton className="h-6 w-28 rounded-full" /><Skeleton className="h-10 w-4/5" /><Skeleton className="h-5 w-1/2" /><Skeleton className="mt-6 h-16 w-full" /></div>
-      ) : (
-        <div key={pick} className="settle">
-          <div className="mt-6 flex items-center gap-3">
-            <TokenIcon src={r.asset.icon} symbol={r.asset.symbol} size={36} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-semibold">{r.asset.name}</div>
-              <div className="text-[12px] text-muted">{r.asset.symbol} · {kind === "xstock" ? "US stock" : "Pre-IPO"}</div>
+      <div className="p-5">
+        {!r ? (
+          <div className="space-y-3"><Skeleton className="h-9 w-40" /><Skeleton className="h-9 w-4/5" /><Skeleton className="mt-6 h-16 w-full" /></div>
+        ) : (
+          <div key={pick} className="settle">
+            <div className="flex items-center gap-3">
+              <TokenIcon src={r.asset.icon} symbol={r.asset.symbol} size={32} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-medium">{r.asset.name}</div>
+                <div className="text-[12px] text-muted">{r.asset.symbol}</div>
+              </div>
+              <Pill tone={fair ? "good" : tone}>{fair ? "Fair price" : kind === "prestock" ? "Above valuation" : tone === "good" ? "Fair price" : "Overpriced"}</Pill>
             </div>
-            <Pill tone={fair ? "good" : tone}>{fair ? "Fair price" : kind === "prestock" ? "Above valuation" : tone === "good" ? "Fair price" : "Overpriced"}</Pill>
+            <p className="mt-5 text-[24px] font-semibold leading-tight">
+              {over == null ? `${price(r.fillPrice)} per share` : fair ? "You're getting the real price" : kind === "prestock" ? `${usd(Math.abs(over))} above valuation` : `You'd pay ${usd(Math.abs(over))} more than it's worth`}
+            </p>
+            <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-4">
+              <div><dt className="text-[12px] text-muted">You pay</dt><dd className="num mt-0.5 text-[17px] font-semibold">{price(r.fillPrice)}</dd></div>
+              <div><dt className="text-[12px] text-muted">{kind === "prestock" ? "Valuation" : "Real price"}</dt><dd className="num mt-0.5 text-[17px] font-semibold">{r.reference ? price(r.reference.price) : "–"}</dd></div>
+            </dl>
           </div>
-          <p className="mt-5 text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
-            {over == null ? `${price(r.fillPrice)} per share` : fair ? "You're getting the real price" : kind === "prestock" ? `${usd(Math.abs(over))} above valuation` : `You'd pay ${usd(Math.abs(over))} more than it's worth`}
-          </p>
-          <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[10px] border border-line bg-line">
-            <div className="bg-panel p-4">
-              <div className="text-[12px] text-muted">You pay per share</div>
-              <div className="num mt-1 text-[18px] font-semibold">{price(r.fillPrice)}</div>
-            </div>
-            <div className="bg-panel p-4">
-              <div className="text-[12px] text-muted">{kind === "prestock" ? "Valuation per share" : "Real price"}</div>
-              <div className="num mt-1 text-[18px] font-semibold">{r.reference ? price(r.reference.price) : "–"}</div>
-            </div>
-          </div>
-          {kind === "prestock" && r.impliedValuation && r.markValuation && (
-            <p className="mt-4 text-[14px] text-ink-2">At this price, {r.asset.name} is valued at <b className="num">{compactUsd(r.impliedValuation)}</b>. PreStocks marks it at <b className="num">{compactUsd(r.markValuation)}</b>.</p>
-          )}
-          {kind === "xstock" && <p className="mt-4 text-[14px] text-ink-2">Matched against {r.asset.name}&apos;s live price, read on-chain.</p>}
-        </div>
-      )}
+        )}
+      </div>
     </figure>
   );
 }
 
-function LiveLine() {
+function Ticker() {
   const { data: board } = useBoard();
-  const worst = [...(board?.rows ?? [])].filter((r) => r.premiumPct != null && r.fillPrice && r.refPrice).sort((a, b) => Math.abs(b.premiumPct!) - Math.abs(a.premiumPct!))[0];
+  const rows = (board?.rows ?? []).filter((r) => r.kind === "xstock" && r.premiumPct != null && r.fillPrice).slice(0, 6);
   return (
-    <section className="border-y border-line bg-panel">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        {worst ? (
-          <p className="max-w-4xl text-[clamp(1.35rem,2.6vw,2rem)] font-medium leading-snug tracking-tight">
-            Right now, a ${board!.probeUsd.toLocaleString()} buy of {worst.name}&apos;s token is priced{" "}
-            <span className={cx("num font-semibold", toneText[gapTone(worst.premiumPct, worst.kind)])}>{Math.abs(worst.premiumPct!).toFixed(0)}% {worst.premiumPct! > 0 ? "above" : "below"}</span>{" "}
-            {worst.kind === "prestock" ? "its own valuation" : "the real stock"}. Most apps won&apos;t show you that.
-          </p>
-        ) : <Skeleton className="h-10 w-3/4" />}
+    <section aria-label="Live prices" className="border-y border-line bg-panel">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 px-4 sm:grid-cols-3 sm:px-6 lg:grid-cols-6">
+        {rows.length ? rows.map((r) => (
+          <Link key={r.mint} href={`/app?t=${r.symbol}`} className="flex items-center gap-2.5 border-line py-4 pr-4 transition-colors hover:text-brand-ink [&:not(:first-child)]:lg:border-l [&:not(:first-child)]:lg:pl-4">
+            <TokenIcon src={r.icon} symbol={r.symbol} size={24} />
+            <span className="min-w-0">
+              <span className="block truncate text-[13px] font-medium">{r.name}</span>
+              <span className="num text-[12.5px] text-muted">{price(r.fillPrice!)} <span className={toneText[gapTone(r.premiumPct, r.kind)]}>{pct(r.premiumPct!, 2)}</span></span>
+            </span>
+          </Link>
+        )) : Array.from({ length: 6 }).map((_, i) => <div key={i} className="py-4 pr-4"><Skeleton className="h-9 w-full" /></div>)}
       </div>
     </section>
   );
 }
 
-function HowItWorks() {
+function Product() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
-      <h2 className="max-w-2xl text-[clamp(1.9rem,3.6vw,2.75rem)] font-semibold leading-tight tracking-[-0.03em]">
-        Three things happen before your money moves.
-      </h2>
-      <div className="mt-16 space-y-20 lg:space-y-28">
-        <Step n={1} title="Check" body="See your real fill before you sign, against the right price for the hour: the live stock price in US trading hours, a 24/7 price when the market is shut. The passport also says what the token legally is and how much of it you could sell without moving the price.">
-          <MiniScale />
-        </Step>
-        <Step n={2} title="Protect" body="With price protection on, the swap's minimum is set from fair value, not from the quote. If the fill would come in worse than your limit, the whole trade is cancelled on-chain, and your limit and the fair price are written into the transaction as a receipt." flip>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between rounded-[10px] border border-line bg-panel px-4 py-3 text-[14px]">
-              <span className="font-medium">Price protection</span>
-              <span className="text-muted">Cancel if 5% worse than fair</span>
-            </div>
-            <div className="rounded-[10px] bg-bad-soft px-4 py-3 text-[14px] text-bad">
-              <b className="font-semibold">Stopped.</b> You&apos;d have received less than your protected minimum, so nothing was traded.
-            </div>
-          </div>
-        </Step>
-        <Step n={3} title="Prove" body="Real trades on Solana are graded against the real price and published every ten minutes, with wash-trading bots taken out. The dataset is hashed on Solana and the numbers are proven with a zero-knowledge proof. Brokers have to report this. On-chain venues don't, so we do.">
-          <MiniReport />
-        </Step>
-      </div>
+    <section className="mx-auto max-w-6xl space-y-24 px-4 py-24 sm:px-6 lg:space-y-32 lg:py-32">
+      <Feature title="Protection on every order." body="Set how far from fair you'll go. A worse fill never executes." href="/app" link="Trade">
+        <ProtectVisual />
+      </Feature>
+      <Feature title="Earn on the stocks you hold." body="Weekly premiums on NVDA, TSLA and SPY, settled at Friday's close." href="/app/earn" link="Earn" flip>
+        <EarnVisual />
+      </Feature>
+      <Feature title="Know where Monday opens." body="Weekend token prices, turned into a forecast with a public track record." href="/app/weekend" link="Weekend">
+        <WeekendVisual />
+      </Feature>
     </section>
   );
 }
 
-function Step({ n, title, body, children, flip }: { n: number; title: string; body: string; children: React.ReactNode; flip?: boolean }) {
+function Feature({ title, body, href, link, flip, children }: { title: string; body: string; href: string; link: string; flip?: boolean; children: React.ReactNode }) {
   return (
-    <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-20">
+    <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-24">
       <div className={cx(flip && "lg:order-2")}>
-        <div className="flex items-baseline gap-3">
-          <span className="num text-[15px] font-semibold text-brand-ink">{n}</span>
-          <h3 className="text-[26px] font-semibold tracking-tight">{title}</h3>
-        </div>
-        <p className="mt-3 max-w-[46ch] text-[17px] leading-relaxed text-ink-2">{body}</p>
+        <h2 className="text-[clamp(1.8rem,3.2vw,2.5rem)] font-semibold leading-[1.1] tracking-[-0.03em]">{title}</h2>
+        <p className="mt-4 max-w-[40ch] text-[17px] leading-relaxed text-muted">{body}</p>
+        <Link href={href} className="mt-6 inline-flex items-center gap-1.5 text-[15px] font-medium text-brand-ink hover:underline">
+          {link}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </Link>
       </div>
-      <div className={cx("rounded-[14px] bg-surface p-5 sm:p-8", flip && "lg:order-1")}>{children}</div>
+      <div className={cx("rounded-2xl bg-surface p-6 sm:p-10", flip && "lg:order-1")}>{children}</div>
     </div>
   );
 }
 
-function MiniScale() {
+function ProtectVisual() {
   return (
-    <div className="rounded-[10px] border border-line bg-panel p-5">
-      <div className="flex items-baseline justify-between text-[13px] text-muted"><span>Real price <b className="num text-ink">$224.54</b></span><span>You pay <b className="num text-ink">$224.99</b></span></div>
-      <div className="relative mt-4 h-2 rounded-full bg-surface-2">
-        <div className="absolute left-[38%] top-0 h-2 w-[18%] rounded-full bg-good/35" />
-        <span className="absolute left-[38%] top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink ring-4 ring-panel" />
-        <span className="absolute left-[56%] top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-good ring-4 ring-panel" />
+    <div className="mx-auto max-w-sm rounded-xl border border-line bg-panel p-5 shadow-card">
+      <div className="flex items-center justify-between text-[14px]">
+        <span className="font-medium">Price protection</span>
+        <span className="relative h-5 w-9 rounded-full bg-brand"><span className="absolute left-0 top-0.5 h-4 w-4 translate-x-[18px] rounded-full bg-white shadow" /></span>
       </div>
-      <div className="mt-5 flex items-center justify-between">
-        <span className="text-[15px] font-semibold">$2.00 more than it&apos;s worth</span>
-        <Pill tone="good">Fair price</Pill>
+      <div className="mt-4 grid grid-cols-4 gap-0.5 rounded-lg bg-surface-2 p-0.5 text-center text-[13px]">
+        {["0.25%", "0.50%", "1%", "3%"].map((v) => <span key={v} className={cx("rounded-md py-1.5", v === "0.50%" ? "bg-panel font-medium text-ink shadow-[0_1px_2px_oklch(0_0_0/0.08)]" : "text-muted")}>{v}</span>)}
+      </div>
+      <p className="num mt-3 text-[13px] text-muted">Cancels if above $225.80</p>
+      <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-bad-soft px-3.5 py-3 text-[13.5px]">
+        <svg className="mt-px shrink-0 text-bad" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5" strokeWidth="1.4" /><path d="M8 4.8v3.6M8 10.9v.1" /></svg>
+        <span className="text-ink">Cancelled: the fill was worse than your limit. Nothing was traded.</span>
       </div>
     </div>
   );
 }
 
-function MiniReport() {
-  const { data } = useFetch<ReportLite>(REPORT_URL, 300_000);
-  const rows = data?.by_size.filter((r) => r.graded >= 10 && r.median_gap_bps != null) ?? [];
+function EarnVisual() {
   return (
-    <div className="rounded-[10px] border border-line bg-panel">
-      <div className="border-b border-line px-4 py-3 text-[13px] text-muted">Typical price paid vs real, by order size</div>
-      {rows.length === 0 ? <div className="p-4"><Skeleton className="h-24 w-full" /></div> : (
-        <ul className="divide-y divide-line">
-          {rows.map((r) => (
-            <li key={r.key} className="flex items-center justify-between px-4 py-3 text-[14px]">
-              <span className="font-medium">{r.key}</span>
-              <span className={cx("num font-semibold", r.median_gap_bps! > 100 ? "text-bad" : r.median_gap_bps! > 25 ? "text-warn" : "text-good")}>{pct(r.median_gap_bps! / 100)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="mx-auto max-w-sm rounded-xl border border-line bg-panel p-5 shadow-card">
+      <div className="grid grid-cols-2 gap-0.5 rounded-lg bg-surface-2 p-0.5 text-center text-[13.5px]">
+        <span className="rounded-md bg-panel py-1.5 font-medium shadow-[0_1px_2px_oklch(0_0_0/0.08)]">Buy lower</span>
+        <span className="py-1.5 text-muted">Sell higher</span>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-1.5 text-center">
+        {[["$218", "−3.1%"], ["$214", "−4.9%"], ["$202", "−10.2%"]].map(([v, d], i) => (
+          <span key={v} className={cx("num rounded-md border py-2 text-[13.5px] font-medium", i === 0 ? "border-ink bg-ink text-bg" : "border-line")}>
+            {v}<span className={cx("block text-[11px] font-normal", i === 0 ? "text-bg/70" : "text-muted")}>{d}</span>
+          </span>
+        ))}
+      </div>
+      <dl className="mt-5 space-y-2 border-t border-line pt-4 text-[13.5px]">
+        <div className="flex justify-between"><dt className="text-muted">You earn</dt><dd className="num font-medium">$6.35</dd></div>
+        <div className="flex justify-between"><dt className="text-muted">Return</dt><dd className="num">1.27% in 7 days</dd></div>
+      </dl>
     </div>
   );
 }
 
-function ReportTeaser() {
+function WeekendVisual() {
+  const { data } = useFetch<{ forecasts: Forecast[] }>("/api/weekend", 300_000);
+  const rows = (data?.forecasts ?? []).filter((f) => f.last).slice(0, 4);
+  return (
+    <div className="mx-auto max-w-sm rounded-xl border border-line bg-panel shadow-card">
+      <div className="border-b border-line px-5 py-3 text-[13px] text-muted">Last weekend: called vs opened</div>
+      <ul className="divide-y divide-line">
+        {rows.length ? rows.map((f) => (
+          <li key={f.symbol} className="flex items-center gap-3 px-5 py-3 text-[14px]">
+            <TokenIcon src={f.icon} symbol={f.symbol} size={22} />
+            <span className="flex-1 font-medium">{f.ticker}</span>
+            <span className="num text-muted">{pct(f.last!.forecastPct, 2)}</span>
+            <span className="num w-16 text-right font-medium">{pct(f.last!.actualPct, 2)}</span>
+          </li>
+        )) : [0, 1, 2, 3].map((i) => <li key={i} className="px-5 py-3"><Skeleton className="h-6 w-full" /></li>)}
+      </ul>
+    </div>
+  );
+}
+
+function ReportBand() {
   const { data } = useFetch<ReportLite>(REPORT_URL, 300_000);
-  const small = data?.by_size.find((s) => s.key === "< $100");
-  const mid = data?.by_size.find((s) => s.key === "$100–1k");
-  const ready = small?.median_gap_bps != null && mid?.median_gap_bps != null && small.graded >= 10 && mid.graded >= 10;
-  // Only claim small trades pay more when the data clearly says so.
-  const smallPaysMore = ready && small!.median_gap_bps! - mid!.median_gap_bps! >= 10 && small!.median_gap_bps! >= 2 * Math.max(mid!.median_gap_bps!, 1);
+  const x = data?.overall.xstocks;
+  const f = (bps: number | null | undefined) => (bps == null ? "–" : pct(bps / 100));
   return (
     <section className="bg-ink text-bg">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-24 sm:px-6 lg:grid-cols-[1.2fr_1fr] lg:items-end lg:py-28">
-        <div>
-          <h2 className="text-[clamp(1.9rem,3.6vw,2.75rem)] font-semibold leading-tight tracking-[-0.03em]">
-            {smallPaysMore ? "Small trades pay the most." : "Every fill, graded in public."}
-          </h2>
-          <p className="mt-4 max-w-[48ch] text-[17px] leading-relaxed opacity-80">
-            {smallPaysMore
-              ? `In the trades we've graded, orders under $100 paid a typical ${pct(small!.median_gap_bps! / 100)} over the real price. Orders of $100 to $1,000 paid ${pct(mid!.median_gap_bps! / 100)}.`
-              : "We grade tokenized-stock trades on Solana against the real stock price and publish the results every ten minutes, venue by venue, so you can see where the bad fills happen."}
-          </p>
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+        <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <h2 className="text-[clamp(1.8rem,3.2vw,2.5rem)] font-semibold leading-[1.1] tracking-[-0.03em]">Every fill, graded in public.</h2>
+            <p className="mt-4 max-w-[46ch] text-[17px] leading-relaxed text-bg/70">Real trades on Solana against the real stock price. Bots removed, proven on-chain.</p>
+          </div>
+          <Link href="/report" className={cx(btn, "bg-bg text-ink hover:opacity-90")}>Read the report</Link>
         </div>
-        <div className="lg:text-right">
-          <Link href="/report" className={cx(cta, "bg-bg px-6 text-ink hover:opacity-90")}>Read the report</Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Weekend() {
-  return (
-    <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
-      <div className="grid gap-10 lg:grid-cols-2 lg:gap-20">
-        <h2 className="text-[clamp(1.9rem,3.6vw,2.75rem)] font-semibold leading-tight tracking-[-0.03em]">The weekend doesn&apos;t get to set your price.</h2>
-        <div>
-          <p className="text-[17px] leading-relaxed text-ink-2">
-            Tokenized stocks trade all weekend. The real stocks don&apos;t, so the last close is a stale yardstick. Rehearsal judges off-hours trades against a 24/7 perpetual price instead. Or wait: with a fair order, everyone waiting is filled together at Monday&apos;s first real price, or at the 4 PM close.
-          </p>
-          <Link href="/app/orders" className="mt-6 inline-block text-[15px] font-semibold text-brand-ink hover:underline">How orders work</Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Builders() {
-  return (
-    <section className="border-t border-line bg-panel">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:gap-20">
-        <div>
-          <h2 className="text-[clamp(1.6rem,3vw,2.25rem)] font-semibold leading-tight tracking-[-0.03em]">Give your agent a limit it can&apos;t break.</h2>
-          <p className="mt-4 max-w-[48ch] text-[17px] leading-relaxed text-ink-2">
-            The same passport and protected swaps over MCP and a plain API, no key. An agent can&apos;t overpay even when its model is wrong, and every fill comes back with a receipt you can verify.
-          </p>
-          <Link href="/agents" className="mt-6 inline-block text-[15px] font-semibold text-brand-ink hover:underline">Connect an agent</Link>
-        </div>
-        <div>
-          <h2 className="text-[clamp(1.6rem,3vw,2.25rem)] font-semibold leading-tight tracking-[-0.03em]">Launches that stop when the stock stops.</h2>
-          <p className="mt-4 max-w-[48ch] text-[17px] leading-relaxed text-ink-2">
-            For Meteora launches priced in a tokenized stock: a transfer hook that pauses the launch token while that stock is halted, the way listed markets pause, and steps aside when the curve graduates.
-          </p>
-          <Link href="/agents#launch" className="mt-6 inline-block text-[15px] font-semibold text-brand-ink hover:underline">For launchpads</Link>
-        </div>
+        <dl className="mt-14 grid gap-8 border-t border-bg/15 pt-8 sm:grid-cols-3">
+          <div><dt className="text-[13px] text-bg/60">Typical trade</dt><dd className="num mt-1 text-[28px] font-semibold">{x ? f(x.median_gap_bps) : "–"}</dd></div>
+          <div><dt className="text-[13px] text-bg/60">Worst 1 in 10</dt><dd className="num mt-1 text-[28px] font-semibold">{x ? f(x.p90_gap_bps) : "–"}</dd></div>
+          <div><dt className="text-[13px] text-bg/60">Trades graded</dt><dd className="num mt-1 text-[28px] font-semibold">{data ? data.coverage.fills.toLocaleString() : "–"}</dd></div>
+        </dl>
       </div>
     </section>
   );
@@ -297,11 +259,9 @@ function Builders() {
 
 function Closing() {
   return (
-    <section className="border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <h2 className="max-w-xl text-[clamp(1.6rem,3vw,2.25rem)] font-semibold leading-tight tracking-[-0.03em]">Check your next trade before you make it.</h2>
-        <Link href="/app" className={cx(cta, "bg-brand text-on-brand hover:bg-brand-hover")}>Open app</Link>
-      </div>
+    <section className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+      <h2 className="text-[clamp(1.6rem,2.8vw,2.1rem)] font-semibold leading-tight tracking-[-0.03em]">Your next trade, at the real price.</h2>
+      <Link href="/app" className={cx(btn, "bg-brand text-on-brand hover:bg-brand-hover")}>Open app</Link>
     </section>
   );
 }

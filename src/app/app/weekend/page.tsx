@@ -1,5 +1,6 @@
 "use client";
-import { InfoTip, Pill, Skeleton, TokenIcon, cx } from "@/components/ui";
+import { InfoTip, Notice, Pill, Skeleton, TokenIcon, cx } from "@/components/ui";
+import MarketsNav from "@/components/MarketsNav";
 import { useFetch } from "@/lib/hooks";
 import type { Forecast, LenderRisk } from "@/lib/weekend";
 
@@ -13,89 +14,87 @@ const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US"
 export default function Weekend() {
   const { data, error } = useFetch<Data>("/api/weekend", 60_000, 60_000);
   const loading = !data && !error;
+  const failed = !!error || !!data?.error;
 
   return (
-    <div className="space-y-12">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Weekend</h1>
-          <p className="mt-1 max-w-[62ch] text-[15px] text-muted">Where stocks should reopen, read from how their tokens traded while the market was shut. And what a bad open does to loans.</p>
-        </div>
-        {data && !data.error && <Pill tone={data.open ? "good" : "neutral"}>{data.open ? "Market open" : "Market closed"}</Pill>}
-      </header>
+    <div className="space-y-10">
+      <MarketsNav right={data && !failed ? <Pill tone={data.open ? "good" : "neutral"}>{data.open ? "Market open" : "Market closed"}</Pill> : undefined} />
+      {failed && <Notice tone="bad">Weekend data is unavailable right now.</Notice>}
 
       <section aria-labelledby="open-h">
-        <div className="flex items-center gap-2">
-          <h2 id="open-h" className="text-[18px] font-semibold">{data?.open ? "How last weekend's call went" : "Next open"}</h2>
-          <InfoTip label="How this is worked out">
-            The stock&apos;s last close, moved by as much as its token has moved on Solana since the bell. The range covers 8 in 10 past weekends. Tokens: main Solana USDC pool. Stocks: official close and open.
-          </InfoTip>
-        </div>
-        <div className="mt-4 overflow-hidden rounded-[10px] border border-line">
-          {(error || data?.error) && <p className="px-5 py-4 text-[14px] text-bad">Couldn&apos;t load this right now.</p>}
-          {loading && [0, 1, 2, 3].map((i) => <Skeleton key={i} className="m-4 h-10 rounded-lg" />)}
-          {data?.forecasts?.map((f) => {
-            const hits = f.record.movedWeekends ? `${f.record.rightDirection} of ${f.record.movedWeekends} weekends` : null;
-            return (
-              <div key={f.symbol} className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1 border-b border-line px-5 py-4 last:border-0 sm:grid-cols-[auto_9rem_1fr_auto]">
-                <TokenIcon src={f.icon} symbol={f.symbol} size={32} />
-                <span className="text-[15px] font-semibold">{f.ticker}<span className="block text-[12px] font-normal text-muted">{f.close ? `${data?.open ? "Now" : "Closed"} ${money(f.close)}` : "No price"}</span></span>
-                {data.open ? (
-                  <span className="col-span-2 text-[14px] text-ink-2 sm:col-span-1">
-                    {f.last ? <>Tokens said <span className="num font-semibold text-ink">{pct(f.last.forecastPct, 2)}</span>, it opened <span className="num font-semibold text-ink">{pct(f.last.actualPct, 2)}</span> on {day(f.last.mon)}</> : "No weekend yet"}
-                  </span>
-                ) : (
-                  <span className="col-span-2 text-[14px] sm:col-span-1">
-                    {f.implied && f.changePct !== null ? (
-                      <><span className="num text-[17px] font-semibold">{money(f.implied)}</span>
-                        <span className={cx("num ml-2 font-semibold", f.changePct >= 0 ? "text-good" : "text-bad")}>{pct(f.changePct, 2)}</span>
-                        {f.rangePct !== null && <span className="num ml-2 text-muted">± {f.rangePct.toFixed(1)}%</span>}</>
-                    ) : <span className="text-muted">Waiting for token prices since the close</span>}
-                  </span>
-                )}
-                <span className="col-span-2 text-[13px] text-muted sm:col-span-1 sm:text-right">
-                  {hits && <>Right direction {hits}</>}
-                  {f.record.medianMissBps !== null && <span className="block">Typical miss {(f.record.medianMissBps / 100).toFixed(2)}%</span>}
+        <h2 id="open-h" className="flex items-center gap-1.5 text-[15px] font-semibold">
+          {data?.open ? "Last weekend" : "Next open"}
+          <InfoTip label="How it's calculated">Last close, moved by the token&apos;s move on Solana since the bell. The range covers 8 in 10 past weekends.</InfoTip>
+        </h2>
+        <div className="mt-3 divide-y divide-line border-y border-line">
+          {loading && [0, 1, 2, 3].map((i) => <div key={i} className="py-3.5"><Skeleton className="h-8 w-full" /></div>)}
+          {data?.forecasts?.map((f) => (
+            <div key={f.symbol} className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 py-3 sm:grid-cols-[auto_10rem_1fr_auto]">
+              <TokenIcon src={f.icon} symbol={f.symbol} size={28} />
+              <span className="min-w-0 text-[14px] font-medium">{f.ticker}<span className="num block text-[12px] font-normal text-muted">{f.close ? `${data.open ? "Now" : "Close"} ${money(f.close)}` : "No price"}</span></span>
+              {data.open ? (
+                <span className="col-span-2 row-start-2 text-[13.5px] text-muted sm:col-span-1 sm:row-start-auto">
+                  {f.last ? <>Called <span className="num font-medium text-ink">{pct(f.last.forecastPct, 2)}</span> · opened <span className="num font-medium text-ink">{pct(f.last.actualPct, 2)}</span></> : "–"}
                 </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section aria-labelledby="loans-h">
-        <div className="flex items-center gap-2">
-          <h2 id="loans-h" className="text-[18px] font-semibold">Loans against stocks on Kamino</h2>
-          <InfoTip label="Where these numbers come from">
-            Borrow limits and liquidation levels are read from each Kamino reserve on-chain. Kamino keeps prices at Friday&apos;s close over the weekend, so the whole weekend move lands at the open. Past reopenings: official close to next open, last 2 years.
-          </InfoTip>
-        </div>
-        <p className="mt-1 max-w-[70ch] text-[14px] text-muted">A loan at its limit gets liquidated if the stock opens this much lower.</p>
-        <div className="mt-4 overflow-hidden rounded-[10px] border border-line">
-          {loading && [0, 1, 2].map((i) => <Skeleton key={i} className="m-4 h-10 rounded-lg" />)}
-          {data && !data.lenders?.length && !data.error && <p className="px-5 py-4 text-[14px] text-muted">Kamino&apos;s data isn&apos;t available right now.</p>}
-          {data?.lenders?.map((l) => (
-            <div key={l.symbol} className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1 border-b border-line px-5 py-4 last:border-0 md:grid-cols-[auto_9rem_1fr_1fr_auto]">
-              <TokenIcon src={l.icon} symbol={l.symbol} size={32} />
-              <span className="text-[15px] font-semibold">{l.ticker}<span className="block text-[12px] font-normal text-muted">{compact(l.suppliedUsd)} deposited</span></span>
-              <span className="col-span-2 text-[14px] md:col-span-1">
-                <span className="num font-semibold">{l.dropToLiquidatePct.toFixed(1)}% drop</span>
-                <span className="block text-[12px] text-muted">Limit {l.maxLtvPct}% · liquidated at {l.liquidationPct}%</span>
-              </span>
-              <span className="col-span-2 text-[14px] md:col-span-1">
-                <span className="num font-semibold">{l.mondaysThatFar} of {l.mondays}</span> <span className="text-muted">reopenings fell that far</span>
-                <span className="block text-[12px] text-muted">Worst {pct(l.worstMondayPct)} on {day(l.worstMondayDate)}</span>
-              </span>
-              <span className="col-span-2 text-[13px] text-ink-2 md:col-span-1 md:text-right">
-                {l.safeLtvPct >= l.maxLtvPct ? <>Loans at the limit <span className="font-semibold text-ink">survived all of them</span></> : <>Borrow up to <span className="num font-semibold text-ink">{l.safeLtvPct.toFixed(1)}%</span>
-                <span className="block text-[12px] text-muted">to have survived them all</span></>}
+              ) : (
+                <span className="col-span-2 row-start-2 text-[14px] sm:col-span-1 sm:row-start-auto">
+                  {f.implied && f.changePct !== null ? (
+                    <><span className="num font-semibold">{money(f.implied)}</span>
+                      <span className={cx("num ml-2 font-medium", f.changePct >= 0 ? "text-good" : "text-bad")}>{pct(f.changePct, 2)}</span>
+                      {f.rangePct !== null && <span className="num ml-2 text-muted">± {f.rangePct.toFixed(1)}%</span>}</>
+                  ) : <span className="text-muted">Waiting for token prices</span>}
+                </span>
+              )}
+              <span className="num col-start-3 row-start-1 text-right text-[12.5px] text-muted sm:col-start-auto sm:row-start-auto">
+                {f.record.movedWeekends ? <>{f.record.rightDirection}/{f.record.movedWeekends} right</> : null}
+                {f.record.medianMissBps !== null && <span className="block">±{(f.record.medianMissBps / 100).toFixed(2)}% typical</span>}
               </span>
             </div>
           ))}
         </div>
       </section>
 
-      {data?.studyAt && <p className="text-[12px] text-muted">Track record updated {new Date(data.studyAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}. Not investment advice.</p>}
+      <section aria-labelledby="loans-h">
+        <h2 id="loans-h" className="flex items-center gap-1.5 text-[15px] font-semibold">
+          Loans on Kamino
+          <InfoTip label="About this table">Kamino holds prices at Friday&apos;s close, so the weekend move lands at the open. Limits read from Kamino on-chain; reopenings from the last 2 years.</InfoTip>
+        </h2>
+        <div className="relative mt-3 overflow-x-auto">
+          <table className="w-full min-w-[620px] text-[14px]">
+            <thead className="border-b border-line text-left text-[12.5px] text-muted">
+              <tr>
+                <th scope="col" className="py-2.5 pr-3 font-medium">Collateral</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-medium">Limit / liquidation</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-medium">Liquidated by</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-medium">Opens that bad</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-medium">Worst open</th>
+                <th scope="col" className="py-2.5 pl-3 text-right font-medium">Safe limit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && [0, 1, 2].map((i) => <tr key={i} className="border-b border-line"><td colSpan={6} className="py-3"><Skeleton className="h-7 w-full" /></td></tr>)}
+              {data && !failed && !data.lenders?.length && <tr><td colSpan={6} className="py-8 text-center text-muted">Kamino data unavailable.</td></tr>}
+              {data?.lenders?.map((l) => (
+                <tr key={l.symbol} className="border-b border-line">
+                  <td className="py-2.5 pr-3">
+                    <span className="flex items-center gap-3">
+                      <TokenIcon src={l.icon} symbol={l.symbol} size={28} />
+                      <span><span className="block font-medium">{l.ticker}</span><span className="num block text-[12px] text-muted">{compact(l.suppliedUsd)}</span></span>
+                    </span>
+                  </td>
+                  <td className="num px-3 py-2.5 text-right text-muted">{l.maxLtvPct}% / {l.liquidationPct}%</td>
+                  <td className="num px-3 py-2.5 text-right font-medium">−{l.dropToLiquidatePct.toFixed(1)}%</td>
+                  <td className="num px-3 py-2.5 text-right">
+                    {l.mondaysThatFar > 0 ? <Pill tone="warn">{l.mondaysThatFar} of {l.mondays}</Pill> : <span className="text-muted">0 of {l.mondays}</span>}
+                  </td>
+                  <td className="num px-3 py-2.5 text-right text-muted">{pct(l.worstMondayPct)}<span className="block text-[12px]">{day(l.worstMondayDate)}</span></td>
+                  <td className="num py-2.5 pl-3 text-right font-medium">{l.safeLtvPct >= l.maxLtvPct ? `${l.maxLtvPct}%` : `${l.safeLtvPct.toFixed(1)}%`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

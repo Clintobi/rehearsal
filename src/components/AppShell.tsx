@@ -7,63 +7,68 @@ import { cx, Logo, ThemeToggle } from "./ui";
 
 const WalletMultiButton = dynamic(() => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton), { ssr: false });
 
+// Five destinations. Pre-IPO and Weekend live inside Markets; Orders inside Portfolio.
 const NAV = [
-  { href: "/app", label: "Trade", icon: <path d="M4 16l5-5 4 4 7-7M14 8h6v6" /> },
-  { href: "/app/markets", label: "Markets", icon: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></> },
-  { href: "/app/earn", label: "Earn", icon: <><circle cx="12" cy="12" r="8.5" /><path d="M14.8 9.3c-.5-.9-1.6-1.4-2.8-1.4-1.6 0-2.8.8-2.8 2s1.2 1.7 2.8 2.1c1.6.4 2.8.9 2.8 2.1s-1.2 2-2.8 2c-1.3 0-2.4-.5-2.9-1.4M12 6.4v1.5M12 16.1v1.5" /></> },
-  { href: "/app/weekend", label: "Weekend", icon: <><path d="M12 3v2M12 19v2M4.2 7l1.7 1M18.1 16l1.7 1M3 12h2M19 12h2" /><path d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" /></> },
-  { href: "/app/private", label: "Pre-IPO", icon: <><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z" /></> },
-  { href: "/app/portfolio", label: "Portfolio", icon: <><rect x="3" y="6" width="18" height="14" rx="3" /><path d="M16 13h2M3 10h18" /></> },
-  { href: "/app/orders", label: "Orders", icon: <><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" /></> },
-  { href: "/report", label: "Report", icon: <><path d="M6 3h9l5 5v13H6z" /><path d="M14 3v6h6M9 14h8M9 18h5" /></> },
+  { href: "/app", label: "Trade", match: ["/app"], icon: <path d="M4 16l5-5 4 4 7-7M14 8h6v6" /> },
+  { href: "/app/markets", label: "Markets", match: ["/app/markets", "/app/private", "/app/weekend"], icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> },
+  { href: "/app/earn", label: "Earn", match: ["/app/earn"], icon: <><circle cx="12" cy="12" r="8.5" /><path d="M14.8 9.3c-.5-.9-1.6-1.4-2.8-1.4-1.6 0-2.8.8-2.8 2s1.2 1.7 2.8 2.1c1.6.4 2.8.9 2.8 2.1s-1.2 2-2.8 2c-1.3 0-2.4-.5-2.9-1.4M12 6.4v1.5M12 16.1v1.5" /></> },
+  { href: "/app/portfolio", label: "Portfolio", match: ["/app/portfolio", "/app/orders"], icon: <><rect x="3" y="6" width="18" height="14" rx="3" /><path d="M16 13h2M3 10h18" /></> },
+  { href: "/report", label: "Report", match: ["/report"], icon: <><path d="M6 3h9l5 5v13H6z" /><path d="M14 3v6h6M9 14h8M9 18h5" /></> },
 ];
 
-function active(path: string, href: string) {
-  return href === "/app" ? path === "/app" : path.startsWith(href);
+function active(path: string, match: string[]) {
+  return match.some((m) => (m === "/app" ? path === "/app" : path.startsWith(m)));
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname() ?? "";
   return (
     <div className="min-h-dvh bg-bg">
-      <header className="sticky top-0 z-[var(--z-sticky)] border-b border-line bg-bg/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6 lg:gap-6">
+      <header className="sticky top-0 z-[var(--z-sticky)] border-b border-line bg-bg/90 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-8 px-4 sm:px-6">
           <Link href="/" aria-label="Rehearsal home"><Logo /></Link>
-          <nav aria-label="Main" className="hidden items-center gap-0.5 md:flex lg:gap-1">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
-                className={cx("whitespace-nowrap rounded-full px-2.5 py-2 text-[13px] font-medium transition-colors lg:px-3.5 lg:text-[14px]",
-                  active(path, n.href) ? "bg-surface-2 text-ink" : "text-muted hover:text-ink")}>
-                {n.label}
-              </Link>
-            ))}
+          <nav aria-label="Main" className="hidden h-full items-center gap-6 md:flex">
+            {NAV.map((n) => {
+              const on = active(path, n.match);
+              return (
+                <Link key={n.href} href={n.href} aria-current={on ? "page" : undefined}
+                  className={cx("relative flex h-full items-center text-[14px] font-medium transition-colors",
+                    on ? "text-ink after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-ink" : "text-muted hover:text-ink")}>
+                  {n.label}
+                </Link>
+              );
+            })}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle />
             <WalletMultiButton />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pb-10 pt-6 sm:px-6 md:pt-10">{children}</main>
-      <footer className="mx-auto flex max-w-6xl flex-wrap gap-x-5 gap-y-2 px-4 pb-28 pt-6 text-[12px] text-muted sm:px-6 md:pb-10">
-        <span>Not investment advice. Prices can change before your trade lands.</span>
-        <Link href="/agents" className="hover:text-ink">For agents</Link>
-        <Link href="/terms" className="hover:text-ink">Terms</Link>
-        <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+      <main className="mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 md:pb-16 md:pt-10">{children}</main>
+
+      <footer className="mx-auto hidden max-w-6xl px-4 sm:px-6 md:block">
+        <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-line py-6 text-[12.5px] text-muted">
+          <span>Not investment advice.</span>
+          <Link href="/agents" className="hover:text-ink">API</Link>
+          <Link href="/terms" className="hover:text-ink">Terms</Link>
+          <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+        </div>
       </footer>
 
-      {/* Mobile tab bar */}
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[var(--z-sticky)] border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
-        <div className="grid grid-cols-8">
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
-              className={cx("flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
-                active(path, n.href) ? "text-brand-ink" : "text-muted")}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{n.icon}</svg>
-              {n.label}
-            </Link>
-          ))}
+        <div className="grid grid-cols-5">
+          {NAV.map((n) => {
+            const on = active(path, n.match);
+            return (
+              <Link key={n.href} href={n.href} aria-current={on ? "page" : undefined}
+                className={cx("flex flex-col items-center gap-1 pb-2 pt-2.5 text-[11px] font-medium", on ? "text-ink" : "text-muted")}>
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={on ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{n.icon}</svg>
+                {n.label}
+              </Link>
+            );
+          })}
         </div>
       </nav>
     </div>

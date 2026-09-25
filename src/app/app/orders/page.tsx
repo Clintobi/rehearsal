@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAssets } from "@/lib/hooks";
-import { Button, cx, Pill, Segmented, TokenIcon } from "@/components/ui";
+import { Button, cx, PageHeader, Pill, Segmented, TokenIcon } from "@/components/ui";
 
 const GUARD_ID = process.env.NEXT_PUBLIC_GUARD_PROGRAM_ID ?? "TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE";
 
@@ -39,16 +39,10 @@ export default function Orders() {
 
   return (
     <div className="space-y-10">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Orders</h1>
-          <p className="mt-1 max-w-[62ch] text-[15px] text-muted">Set the most you&apos;ll pay above the real price. Market makers compete to fill you, and they can never go past your limit.</p>
-        </div>
-        {s && <Pill tone={s.open ? "good" : "warn"}>{s.label}</Pill>}
-      </header>
+      <PageHeader title="Limit orders" sub="Fill at fair value, at the open, or at the close." right={<Pill tone="neutral">Devnet</Pill>} />
 
       <div className="grid gap-8 lg:grid-cols-[400px_1fr]">
-        <section aria-label="New order" className="h-fit rounded-[10px] border border-line bg-panel p-5 sm:p-6">
+        <section aria-label="New order" className="h-fit rounded-xl border border-line bg-panel p-5">
           <div className="flex items-center gap-3 rounded-lg bg-surface px-4 py-3">
             <TokenIcon src={nvda?.icon} symbol="NVDAx" size={32} />
             <span><span className="block text-[15px] font-semibold">NVIDIA</span><span className="block text-[12px] text-muted">NVDAx</span></span>
@@ -56,54 +50,53 @@ export default function Orders() {
           <div className="mt-5 space-y-5">
             <Segmented label="Side" value={side} onChange={setSide} options={[{ value: "buy", label: "Buy" }, { value: "sell", label: "Sell" }]} />
             <div>
-              <span className="text-[13px] font-medium text-muted">Most you&apos;ll pay above the real price</span>
+              <span className="text-[12.5px] text-muted">Max over fair</span>
               <div className="mt-2 grid grid-cols-4 gap-2">
                 {["0.1", "0.25", "0.5", "1"].map((v) => (
                   <button key={v} onClick={() => setLimit(v)}
-                    className={cx("num h-10 rounded-full border text-[14px] font-semibold transition-colors", limit === v ? "border-ink bg-ink text-bg" : "border-line text-ink-2 hover:border-line-strong")}>
+                    className={cx("num h-9 rounded-md border text-[13.5px] font-medium transition-colors", limit === v ? "border-ink bg-ink text-bg" : "border-line text-ink-2 hover:border-line-strong")}>
                     {v}%
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <span className="mb-2 block text-[13px] font-medium text-muted">When it fills</span>
+              <span className="mb-1.5 block text-[12.5px] text-muted">Fills</span>
               <Segmented label="When it fills" value={when} onChange={setWhen}
                 options={[{ value: "now", label: "When matched" }, { value: "open", label: "At the open" }, { value: "close", label: "At the close" }]} />
-              <p className="mt-2 text-[13px] text-muted">
-                {when === "now" && "Any market maker can fill you, as long as it's within your limit."}
-                {when === "open" && "Skips weekend prices. Fills at the first real price after the market reopens."}
-                {when === "close" && "Fills at the official 4:00 PM New York closing price, matched with other at-close orders."}
+              <p className="mt-2 text-[12.5px] text-muted">
+                {when === "now" && "Any market maker, within your limit."}
+                {when === "open" && "At the first real price after the reopen."}
+                {when === "close" && "At the 4:00 PM price, with other at-close orders."}
               </p>
             </div>
-            <Button size="lg" className="w-full" disabled>Place order</Button>
-            <p className="text-center text-[13px] text-muted">
-              Orders go live with the mainnet launch. The order program is running on{" "}
-              <a className="text-brand-ink hover:underline" href={`https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet`} target="_blank" rel="noreferrer">devnet</a>.
+            <Button size="lg" className="w-full" disabled>Available on mainnet soon</Button>
+            <p className="text-center text-[12.5px] text-muted">
+              <a className="text-brand-ink hover:underline" href={`https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet`} target="_blank" rel="noreferrer">Order program on devnet</a>
             </p>
           </div>
         </section>
 
         <section aria-labelledby="how" className="space-y-8">
           <div>
-            <h2 id="how" className="text-[17px] font-semibold">How an order fills</h2>
+            <h2 id="how" className="text-[15px] font-semibold">How it works</h2>
             <ol className="mt-4 space-y-5">
               {[
-                ["You set a limit, not a price", "Your USDC waits in an on-chain escrow. The limit follows the live price of the real stock, so it's always current."],
-                ["Market makers compete", "Anyone can fill your order, but every fill is checked against the real price in the same transaction. A fill past your limit fails. A fill below the real price is yours to keep."],
-                ["Weekends wait for Monday", "If the market's closed, your order doesn't touch weekend prices. When trading resumes, everyone waiting is matched at one price: the first real one."],
-                ["Or take the closing price", "At-close orders are matched in the five minutes after 4:00 PM New York, at the last real price before the bell: the same closing price index funds trade at."],
+                ["Set a limit", "Your USDC waits in on-chain escrow."],
+                ["Makers compete", "Every fill is checked against the real price."],
+                ["Weekends wait", "Closed-market orders fill at the reopen price."],
+                ["Or take the close", "Matched at the 4:00 PM price."],
               ].map(([t, d], i) => (
                 <li key={t} className="grid grid-cols-[32px_1fr] gap-3">
-                  <span className="num grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-[14px] font-semibold text-brand-ink">{i + 1}</span>
-                  <span><span className="block text-[15px] font-semibold">{t}</span><span className="mt-1 block max-w-[62ch] text-[14px] text-ink-2">{d}</span></span>
+                  <span className="num grid h-7 w-7 place-items-center rounded-full bg-surface-2 text-[13px] font-medium text-ink-2">{i + 1}</span>
+                  <span><span className="block text-[14px] font-medium">{t}</span><span className="block text-[13.5px] text-muted">{d}</span></span>
                 </li>
               ))}
             </ol>
           </div>
 
           {s && (
-            <div className="rounded-[10px] border border-line bg-panel p-5">
+            <div className="rounded-xl border border-line p-5">
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-semibold">Right now</span>
                 <Pill tone={s.open ? "good" : "warn"}>{s.label}</Pill>
@@ -113,11 +106,6 @@ export default function Orders() {
             </div>
           )}
 
-          <p className="text-[13px] text-muted">
-            Tested against real mainnet data: a fill at 0.2% over fair went through, one at 2% over was refused, a weekend buyer and seller were matched at exactly the reopen price, and an at-close pair filled at exactly the 4:00 PM price while an after-hours print was ignored.{" "}
-            <a className="text-brand-ink hover:underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-orders-test-output.txt" target="_blank" rel="noreferrer">Order tests</a>{" · "}
-            <a className="text-brand-ink hover:underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-close-test-output.txt" target="_blank" rel="noreferrer">Closing cross tests</a>
-          </p>
         </section>
       </div>
     </div>
