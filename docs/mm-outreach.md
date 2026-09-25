@@ -56,7 +56,7 @@ Hi, saw your post on 850K tokenized-stock holders on Solana. I built weekly cove
 ### 3. xStocks / Kraken vault team (X DM)
 
 ```
-Hi, your xStocks vaults launched at 2% on SPYx and 1.8% on NVDAx. I built weekly covered calls on the same tokens on Solana, fully collateralized and settling on the 4 PM Pyth print. At typical volatility a 3-5% out-of-the-money weekly call has been worth several times that (my estimate, not live yet). Before I go to audit: would a covered-call leg fit inside your vault setup, or would it have to live as its own product?
+Hi, your xStocks vaults launched at 2% on SPYx and 1.8% on NVDAx. I built weekly covered calls on the same tokens on Solana, fully collateralized and settling on the 4 PM Pyth print. On NVDAx, a weekly call 3% out of the money is worth about 1% of the position per week at typical volatility (my estimate, not live yet). Before I go to audit: would a covered-call leg fit inside your vault setup, or would it have to live as its own product?
 ```
 
 ### 4. Rysk (X DM)
