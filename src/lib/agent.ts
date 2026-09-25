@@ -2,14 +2,14 @@
 // server (/api/mcp). For any tokenized stock it answers what you hold, how good the price
 // evidence is right now, whether you can get out at your size, and builds a swap that cannot
 // fill worse than fair value, with the terms written into the transaction as a receipt.
-import { Connection, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction, type AddressLookupTableAccount } from "@solana/web3.js";
+import { ComputeBudgetProgram, Connection, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction, type AddressLookupTableAccount } from "@solana/web3.js";
 import { allAssets, type Asset } from "./assets";
 import { quote, swapInstructions, USDC, type Quote } from "./jup";
 import { rehearse, rpc, type Rehearsal } from "./rehearse";
 import { marketStatus } from "./market";
 import { haltBoard } from "./halts";
 import { mintInfos } from "./mintinfo";
-import { toIx, type JupSwapIxs } from "./guard";
+import { ata, toIx, type JupSwapIxs } from "./guard";
 import { STRUCTURES, type Structure } from "./structure";
 import { perpReference, xstockActions, xstockReserves, xstockSession, type CorporateAction, type Perp, type Reserves, type Session } from "./signals";
 
@@ -324,8 +324,19 @@ export function decodeMemo(s: string) {
 export async function assembleSwap(conn: Connection, jup: JupSwapIxs, payer: PublicKey, extra: TransactionInstruction[] = []) {
   const alts = (await Promise.all(jup.addressLookupTableAddresses.map((a) => conn.getAddressLookupTable(new PublicKey(a)))))
     .map((r) => r.value).filter((v): v is AddressLookupTableAccount => !!v);
+  // Jupiter sizes the compute limit for its own instructions only. Anything we add (the receipt memo
+  // costs ~15k units) must be budgeted on top, or the transaction runs out of compute and fails.
+  const extraUnits = extra.length ? 60_000 : 0;
+  const budget = jup.computeBudgetInstructions.map(toIx).map((ix) => {
+    if (!extraUnits || ix.data[0] !== 2) return ix; // 2 = SetComputeUnitLimit(u32)
+    const data = Buffer.alloc(5);
+    data[0] = 2;
+    data.writeUInt32LE(Math.min(1_400_000, ix.data.readUInt32LE(1) + extraUnits), 1);
+    return new TransactionInstruction({ programId: ix.programId, keys: [], data });
+  });
+  if (extraUnits && !budget.some((ix) => ix.data[0] === 2)) budget.unshift(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
   const ixs = [
-    ...jup.computeBudgetInstructions.map(toIx),
+    ...budget,
     ...jup.setupInstructions.map(toIx),
     toIx(jup.swapInstruction),
     ...(jup.cleanupInstruction ? [toIx(jup.cleanupInstruction)] : []),
@@ -335,6 +346,31 @@ export async function assembleSwap(conn: Connection, jup: JupSwapIxs, payer: Pub
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
   const tx = new VersionedTransaction(new TransactionMessage({ payerKey: payer, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message(alts));
   return { tx, lastValidBlockHeight };
+}
+
+// Can this wallet actually pay for the swap? Checked before anything is signed, so an empty wallet
+// gets a plain answer instead of a failed simulation. Returns null when it can.
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const TOKEN_2022_ID = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+const MIN_SOL_LAMPORTS = 5_000_000; // network fee, priority fee and a new token account's rent
+
+export async function fundsCheck(conn: Connection, owner: PublicKey, q: Pick<Quote, "inputMint" | "inAmount">, label: { symbol: string; decimals: number; multiplier: number }): Promise<string | null> {
+  const buying = q.inputMint === USDC;
+  const program = buying ? TOKEN_PROGRAM_ID : TOKEN_2022_ID;
+  const [lamports, bal] = await Promise.all([
+    conn.getBalance(owner).catch(() => null),
+    conn.getTokenAccountBalance(ata(owner, new PublicKey(q.inputMint), program)).then((r) => BigInt(r.value.amount)).catch(() => 0n),
+  ]);
+  if (lamports === null) return null; // RPC hiccup: don't block, the wallet's own simulation still runs
+  if (lamports === 0) return "This wallet has no SOL on Solana mainnet yet, so it can't pay the network fee. Add about 0.01 SOL (around $1) to this wallet on Solana and try again. Nothing was sent.";
+  if (lamports < MIN_SOL_LAMPORTS) return `This wallet has ${(lamports / 1e9).toFixed(4)} SOL. It needs about 0.01 SOL for the network fee and to open a ${buying ? label.symbol : "USDC"} token account. Nothing was sent.`;
+  const need = BigInt(q.inAmount);
+  if (bal < need) {
+    return buying
+      ? `This wallet holds $${(Number(bal) / 1e6).toFixed(2)} USDC on Solana, and this order needs $${(Number(need) / 1e6).toFixed(2)}. Lower the amount or add USDC. Nothing was sent.`
+      : `This wallet holds ${((Number(bal) / 10 ** label.decimals) * label.multiplier).toFixed(6)} ${label.symbol}, less than this sale needs. Lower the amount. Nothing was sent.`;
+  }
+  return null;
 }
 
 // Jupiter enforces minimum out = outAmount × (1 − slippageBps). Pick the slippage that lands on `minRaw`.
@@ -381,6 +417,8 @@ export async function buildProtectedSwap(input: { symbol: string; usd: number; s
   }
 
   const conn = input.conn ?? rpc();
+  const broke = await fundsCheck(conn, owner, r.quote, { symbol: asset.symbol, decimals: asset.decimals, multiplier: r.uiMultiplier });
+  if (broke) return { error: broke, check };
   const jup = await swapInstructions(floorQuote(r.quote, minRaw), owner.toBase58());
   if (jup.error || !jup.swapInstruction) return { error: jup.error ?? "Jupiter could not build this swap", check };
   const t = Math.floor(Date.now() / 1000);
