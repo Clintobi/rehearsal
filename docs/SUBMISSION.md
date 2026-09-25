@@ -1,57 +1,53 @@
 # STOCKLANA submission: Rehearsal
 
-**Tracks:** Main track, PreStocks bounty, Pyth bounty. Only PreStocks pre-IPO tokens are integrated.
+**Tracks:** Main track, PreStocks bounty, Pyth bounty, Meteora DBC bounty. Only PreStocks pre-IPO tokens are integrated (per the PreStocks rules).
 
 **Links**
-- Live app: https://rehearsal-stocklana.vercel.app
+- Live app: https://rehearsal-stocklana.vercel.app (Trade, Markets, Pre-IPO, Orders, Report)
+- For agents (MCP + REST): https://rehearsal-stocklana.vercel.app/agents · MCP URL `https://rehearsal-stocklana.vercel.app/api/mcp`
 - Judge walkthrough: [DEMO.md](../DEMO.md)
 - Open execution report: https://rehearsal-stocklana.vercel.app/report
 - Code: https://github.com/Clintobi/rehearsal
-- Program (devnet): TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE
-- Blink Action (live): https://rehearsal-stocklana.vercel.app/api/actions/rehearse/OPENAI
-
-The dial.to public registry listing was blocked (`DEPLOYMENT_PAUSED`, HTTP 503). Email has already been sent to Dialect. There is no public registry listing.
-
-## Submit checklist
-
-- Public repo: https://github.com/Clintobi/rehearsal
-- Live demo: https://rehearsal-stocklana.vercel.app
-- End-to-end flow: check, then protect, then prove (PreStocks walkthrough in [DEMO.md](../DEMO.md))
-- [DEMO.md](../DEMO.md) at the repo root
-- Blink Action URL above (not a dial.to registry listing)
-- Prove tonight: live grades on `/report`, plus `cargo run --release -- --execute` public values in [DEMO.md](../DEMO.md)
-- Not tonight: Succinct Prover Network Groth16, and local Groth16 (that is after submit; see [zk/README.md](../zk/README.md))
+- Programs (devnet): Rehearsal Guard `TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE`, Rehearsal Gate `4MtrgDQpbgjpzcAcL5Ftm8E1L37deBnZ5f2Pi6WmpqPE`
+- Blink Action (live): https://rehearsal-stocklana.vercel.app/api/actions/rehearse/OPENAI (the dial.to registry is paused, so there is no registry listing)
 
 ## One line
-Best execution for tokenized stocks on Solana: a public report card for every fill, an on-chain guard and circuit breaker, and fair orders that don't let the weekend set your price.
+A tradability passport for tokenized stocks: before you trade, know what you hold, whether the price can be trusted right now and whether you can get out; then the chain refuses any fill worse than fair value, and the receipt is written into the transaction.
 
 ## The problem
-On 17 Sep 2026 the SEC exempted on-chain venues for tokenized stocks from Rules 605 and 611, and set no best-execution standard (Rel. 34-106402). Its own Investor Advisory Committee had warned that retail "may purchase or sell stock … at a worse price than is otherwise publicly available." Tokenized stocks trade 24/7 on thin pools, and the real share trades 6.5 hours a day. Nobody on-chain tells a trader whether the fill was fair, and nobody stops one that isn't.
+Tokenized stocks trade 24/7 on thin pools; the real share trades 6.5 hours a day; pre-IPO companies don't trade at all. 63% of Solana tokenized-stock volume happens while US exchanges are closed (Allium), and Pyth's free on-chain equity prices only update in the regular session. On 17 Sep 2026 the SEC exempted on-chain tokenized-stock venues from Rules 605 and 611 and set no best-execution standard (Rel. 34-106402). Nothing between a quote and a signature tells a trader what the token legally is, whether the price is anchored to anything, whether they could sell it back, or stops a bad fill. Agents are about to trade these markets at machine speed with the same blind spots.
 
 ## What we built
-1. **Open execution report.** It samples real xStock and PreStocks fills on mainnet and grades each against Pyth's price for the real share at that second, or the PreStocks mark. It publishes medians, the worst decile, and 5-minute markouts by venue, router, size and session. The dataset is published and its SHA-256 is committed on Solana each update. An SP1 program (in `zk/`) recomputes the report from raw fills. For this submission, prove is those live grades plus `cargo run --release -- --execute`, which already printed the public values in [DEMO.md](../DEMO.md). Groth16, local or on the Succinct Prover Network, is not part of tonight's ship.
-2. **Rehearsal Guard program.** It wraps any Jupiter swap in one transaction. It measures the actual fill and values it at Pyth, validating the account's owner, feed, verification level, age and confidence. It applies Token-2022 scaled-UI multipliers read from the mint, and reverts if the fill is beyond tolerance. Tolerance can widen with oracle age, like off-hours discovery bounds.
-3. **Circuit breaker with halt-sync.** LULD-style bands around a rolling Pyth reference, with limit, pause and reopen. Primary-exchange halts are mirrored on-chain from Nasdaq's official halt feed, which is the SEC exemption's one hard condition. Any venue can enforce it with one CPI.
-4. **Fair orders and the opening cross.** Resting orders whose limit is fair value. Market makers compete to fill, only at or better than fair, and price improvement goes to the trader. Orders placed while the market is closed clear together at the first Pyth print after reopen, at one price. At-close orders clear at the 4:00 PM New York closing price, with the session close computed on-chain (daylight saving included) and after-hours prints ignored.
-5. **Pre-trade check, wallet exit check and Blink.** The real fill vs fair value before signing, including PreStocks' 1% transfer fee and SpaceX's 5× split. What a wallet's positions would really pay out right now: we found a $386k SPACEX position with no on-chain exit at full size. A tweetable card with the live verdict.
-
-## Why Solana
-Pyth equity prices are readable on-chain with no API key, so the fair price and the actual fill meet inside one atomic transaction. Token-2022 carries the corporate actions. Solana holds about 95% of on-chain tokenized-equity volume.
+1. **Tradability passport** (Trade page, `/api/v1/passport`, MCP `passport`). Per token: the legal wrapper, live proof of reserves and upcoming corporate actions; price evidence by market state from a [published policy](https://rehearsal-stocklana.vercel.app/api/v1/policy) (Pyth in the session, the Lighter 24/7 perp outside it, the PreStocks mark for pre-IPO, refuse while halted); exit capacity (largest sale within 1/2/5% of the current price, vs the biggest wallet); the exact fill for your size; and a decision (proceed, reduce_size, wait, avoid).
+2. **Protected swaps on mainnet, today.** The Jupiter route's minimum output is set from fair value ± the user's limit instead of from the quote, so Jupiter's program reverts the whole transaction below it. The fair price, source, limit and floor go into a memo; `/api/v1/certificate?sig=` re-reads the chain and verifies the fill. Token-2022 fees and scaled-UI multipliers are counted.
+3. **Agent layer.** MCP server (10 tools, stateless HTTP, no key), REST + OpenAPI, `llms.txt`, installable skill. The mandate (`max_gap_bps`) is enforced by the chain, not by the agent. `agent_scorecard` grades any wallet's sampled fills against fair value with markouts.
+4. **Rehearsal Gate for Meteora DBC.** A Token-2022 transfer hook for launches priced in a tokenized stock: bound atomically to the quote stock's on-chain circuit breaker, it pauses every transfer of the launch token while that stock is halted on Nasdaq, and DBC removes it at graduation. Mirrors the halt rule listed markets follow.
+5. **Pre-IPO view.** Every PreStocks token: what its price values the company at, premium to mark, the listing value needed to break even after the 1% in and out, float, exit depth, SpaceX pre-IPO vs listed, and the SPV structure risks.
+6. **Open execution report, bots removed, ZK-proven.** Real fills graded against fair value by venue, router, size and session, with 5-minute markouts. Wash-trading round-trippers are excluded (207 fills). The dataset hash is committed on Solana each update, and a Groth16 proof of the report is verified on-chain by the guard program.
+7. **Rehearsal Guard program** (devnet): on-chain Pyth checks at execution time, LULD-style circuit breakers synced to Nasdaq halts, fair orders with opening and closing crosses (the 4 PM close is computed on-chain, daylight saving included).
 
 ## Evidence
-- Mainnet fork (Surfpool, real Jupiter routes, Pyth accounts and mints): guard 9/9, breaker 13/13, fair orders and opening cross 17/17, closing cross 12/12. The app's pre-trade estimate (+39.20%) matched the guard's on-chain measurement (+39.35%).
-- Devnet: 11/11 against the deployed program, with explorer links in `docs/devnet-smoke-output.txt`. Breakers for 11 stocks are live, with the halt relayer running.
-- 10 Rust unit tests (fixed-point math, cross quantities, breaker state machine).
-- Live data: `/report`.
+- Mainnet fork (Surfpool, real Jupiter routes, Pyth accounts, mints, Meteora DBC and token badges): protected swaps 5/5 (a floor above the route reverts inside Jupiter with 6001; NVDAx buy/sell and a PreStocks buy fill and verify), Rehearsal Gate 8/8 (fills; buys and sells revert in the gate while SPY is halted; resume; hook removed at graduation), guard 9/9, breaker 13/13, fair orders and opening cross 17/17, closing cross 12/12.
+- Devnet: guard smoke test 11/11; a live DBC pool gated by the NVDA breaker the halt relayer keeps in sync (`docs/devnet-gate-output.txt`); Groth16 report proof verified on-chain ([tx](https://explorer.solana.com/tx/xWLNrsazKgyC2xADjP3nUACbvqzTYTBrfdDvPtAYtZTtvFH8UWGZkyEHBw4kjqEqfyriJcgRBrteJLfqAkNsJQk?cluster=devnet)); a tampered proof is rejected.
+- MCP verified with the official MCP inspector (tools/list, tools/call).
+- 14 Rust unit tests (fixed-point math, cross quantities, breaker state machine, New York clock, ZK verifier).
 
 ## PreStocks-specific
-- Handles the 1% transfer fee (buys fill below the quote, so slippage must allow for it) and the 5× SPACEX multiplier.
-- Compares SPACEX to the listed SPCXx: the pre-IPO token trades about 19–22% under the listed share.
-- Grades PreStocks fills against the mark, and says plainly that this measures valuation distance, not fill quality.
-- The wallet exit check shows how much of a position can actually leave.
+- The 1% transfer fee is handled everywhere: quotes, protected-swap floors (tested on a fork), break-even valuations.
+- Pre-IPO page: OpenAI's token values the company about 32% over the PreStocks mark; its largest wallet could sell only about 6% of its position before the price drops 5%.
+- SpaceX pre-IPO vs listed SPCXx; the 5× multiplier; SPV structure and the May 2026 validity debate stated plainly.
+
+## Pyth-specific
+Pyth `Equity.US` price accounts are read on-chain (no key) for every check, the guard, the breakers, both crosses and the report. The policy is explicit about Pyth's regular-session coverage and falls back to a 24/7 perp outside it; Pyth Pro's 24/7 `Equity.Index` feeds (including OpenAI and Anthropic) slot in as soon as a key is available.
+
+## Meteora-specific
+The Gate uses DBC's transfer-hook configs (`create_config_with_transfer_hook`, `swap2_with_transfer_hook`) with an xStock quote and its token badge. Stock-quoted launches exist (StockLaunch and others); what's new is a launch that obeys the stock market's halts, bound at creation and removed at graduation.
+
+## Business
+Consumers: a small fee only on protected trades (0.1–0.25%). B2B: wallets and apps embed the passport and protection API; launchpads add the Gate; venues and lenders buy the report, exit-capacity and halt data. First market: Nigeria, where stablecoin holders lack a fair route to US stocks. Distribution through licensed partners (the Dangote IPO's on-chain allocation ran through NectarFi and GetEquity), not a self-issued rail.
 
 ## Honest limits
-- The guard, breaker and orders are on devnet. The mainnet deploy needs about 3.5 SOL.
-- Pyth is a reference price, not the legal NBBO.
-- Off-hours references are the latest print. Pyth's 24/7 feeds need a Pyth Pro key.
-- Prove tonight is the live grades plus the SP1 `--execute` public values for the frozen 310-fill snapshot. The live report is also recomputed in plain JS, and its dataset hash is committed on-chain. Local Groth16 is after submit. The Succinct Prover Network waits on PROVE credits. See [zk/README.md](../zk/README.md).
+- Protected swaps on mainnet fix fair value when the transaction is built (it's valid for about a minute); the guard program, which reads Pyth at execution, is on devnet until its mainnet deploy (about 4 SOL).
+- Pyth is a reference price, not the legal NBBO. The perp mark is an estimate while the market is shut.
+- Exit capacity comes from quotes, not a promise of liquidity.
+- The Gate mirrors halts; it is not a compliance claim.

@@ -1,8 +1,6 @@
 # ZK execution report (SP1 → Solana)
 
-**Submission check:** the `--execute` run below, together with the live grades. **Not in the submission:** Groth16. Local Groth16 is the optional next step, after submit. The Succinct Prover Network is that same step once the requester account has PROVE credits. Do not start a network proof for the submission.
-
-The program recomputes the published report numbers from `data/fills.json` (310 graded fills sampled from mainnet). Its public values commit:
+The SP1 program recomputes the published report numbers from `zk/data/fills.json` without trusting any precomputed gap. Its public values commit:
 
 - `sha256(fills.json)`
 - the graded fill count
@@ -10,39 +8,31 @@ The program recomputes the published report numbers from `data/fills.json` (310 
 
 `node verify-offchain.mjs` recomputes the same bytes in plain JS.
 
-Expected public values for the current `fills.json`:
+## Verified on Solana
+
+The Groth16 proof over the first snapshot (310 graded fills; proof files in `zk/proof/`, generated on a GitHub Actions runner by `.github/workflows/zk-proof.yml`) is verified on devnet by the Rehearsal Guard program's `attest_report` instruction:
+
+- rebuilds SP1 v6's five public inputs (program vkey hash, masked sha256 of the public values, exit code, recursion vk root, nonce);
+- runs the pairing check with the alt_bn128 syscalls (110,458 compute units);
+- stores a `ReportAttestation` with the proven numbers.
+
+Transaction: https://explorer.solana.com/tx/xWLNrsazKgyC2xADjP3nUACbvqzTYTBrfdDvPtAYtZTtvFH8UWGZkyEHBw4kjqEqfyriJcgRBrteJLfqAkNsJQk?cluster=devnet. Attestation account: `CjtFcKbRrHyBtmdSf1FagcJMzq1EYnnu5rFNdgyGrodH`. The same proof with a tampered dataset hash is rejected with `ProofInvalid` (`docs/zk-onchain-output.txt`). `zk/solana-convert` converts SP1's gnark proof and key into the syscall format.
+
+## Current snapshot: bots excluded
+
+`zk/data/fills.json` is now the bot-filtered dataset: 903 graded fills, with wash-trading round-trippers removed. Its sha256 starts `d16b791f` and is committed on devnet by the recorder. Expected public values:
+
 ```
-1d4b3ed610384ec03abd824de75a387c17bc526c40ee3f4b0f4429884e0f144c36010000310100008fc4415b250000000300000038000000f000000005000000ef48fd5e00000000200000001501000002000000
+d16b791f23136569d625732d70506edc864639c057175ef6fbb782566b571abf87030000730300003f1ca7b564000000000000002c000000ed0200001400000086fb77fe01000000540000004a02000005000000
 ```
 
-## The check that already passed
+## Reproduce
 
 ```bash
-curl -L https://sp1up.succinct.xyz | bash && sp1up      # installs cargo-prove + the succinct toolchain
-git clone https://github.com/Clintobi/rehearsal && cd rehearsal/zk
-cd script
-cargo run --release -- --execute    # public values must equal the hex above
-```
-
-Built and checked on SP1 v6.8.1: `--execute` runs in 6.54M instructions and prints exactly the public values above. That is the submission check.
-
-## Later: Groth16 (after submit)
-
-Local Groth16 needs 16 GB+ RAM and Docker, and takes 10–40 minutes:
-
-```bash
+curl -L https://sp1up.succinct.xyz | bash && sp1up
 cd zk/script
-cargo run --release
+cargo run --release -- --execute    # 18.9M instructions; public values must equal the hex above
+cargo run --release                 # Groth16 (Docker, 16 GB+ RAM), or dispatch .github/workflows/zk-proof.yml
 ```
 
-Outputs in `zk/out/`: `groth16_proof.hex`, `public_values.hex`, `vkey_hash.txt`, `proof.bin`.
-
-`zk/run-proof.sh` is that full local path (install, `--execute`, then Groth16). It is not the submission command.
-
-Succinct Prover Network, only when the requester account is funded with PROVE. Do not start this for the submission:
-
-```bash
-SP1_PROVER=network NETWORK_PRIVATE_KEY=<requester key> cargo run --release
-```
-
-The Solana program's `attest_report` instruction is the verifier for that later Groth16 proof.
+Outputs land in `zk/out/`: `groth16_proof.hex`, `public_values.hex`, `vkey_hash.txt`, `proof.bin`. To verify on-chain, convert with `zk/solana-convert`, then run `scripts/attest-report.ts`.

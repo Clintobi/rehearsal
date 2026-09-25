@@ -39,4 +39,4 @@ Distribute  wallet check, Blinks, receipts
 
 Rehearsal is the retail side of the best-execution stack that the SEC exemption stopped requiring.
 
-The 25 Sep 2026 submission stops at published grades plus the SP1 `--execute` public values ([DEMO.md](../DEMO.md)). Item 6, a ZK-proven report verified on Solana, is still future work. Tonight does not include a Succinct Prover Network Groth16 proof.
+Item 6 shipped: the report's Groth16 proof is verified on Solana by the guard program's `attest_report` (devnet), and the bot-free snapshot is being re-proven on GitHub Actions. See [zk/README.md](../zk/README.md).

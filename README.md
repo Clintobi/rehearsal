@@ -1,19 +1,45 @@
 # Rehearsal
 
-**Know what a tokenized stock really costs before you sign, and have the chain refuse the trade if it's worse.**
+**A tradability passport for tokenized stocks on Solana. Know what you hold. Know what you paid. Know you can get out.**
 
-xStocks and PreStocks trade around the clock on DEX liquidity. The real share trades 6.5 hours a day, and pre-IPO companies don't trade at all. So the price a Solana wallet is about to pay can drift well away from fair value, and nothing on the way to the signature tells you.
+xStocks and PreStocks trade around the clock on DEX liquidity. The real share trades 6.5 hours a day, pre-IPO companies don't trade at all, and 63% of Solana tokenized-stock volume happens while US exchanges are closed (Allium, 12 months to 18 Aug 2026). The SEC's new exemption for on-chain stock venues even drops the best-execution rules. So the price a wallet is about to pay can drift far from fair value, and nothing between the quote and the signature says so.
 
-Rehearsal has two layers:
+For any tokenized stock, Rehearsal answers four questions before you trade, then enforces the answer:
 
-1. **Rehearse (off-chain, instant).** It quotes your exact order on Jupiter and prices it against Pyth's on-chain price for the real stock, or against the PreStocks mark. You see the gap in percent and dollars, the size impact, the round-trip cost, and the valuation you're really buying at. Token-2022 scaled-UI multipliers and transfer fees are included.
-2. **Guard (on-chain, atomic).** The Rehearsal Guard program wraps any Jupiter swap as `open_guard → swap → close_guard` in one transaction. `close_guard` measures what the wallet actually spent and received and values it at Pyth. If the fill is worse than fair value by more than the wallet's tolerance, the whole transaction reverts. No quote, no off-chain promise, and no stale UI can get around it.
+1. **What you hold.** The legal wrapper (xStocks: a 1:1 collateralised tracker note; PreStocks: SPV exposure, not redeemable at the mark on demand), live proof of reserves from the issuer, and upcoming corporate actions.
+2. **How good the price evidence is right now.** A published policy picks the reference by market state: Pyth's on-chain `Equity.US` price in the regular session, the Lighter 24/7 perpetual's mark outside it (Pyth's free on-chain equity feeds are regular-hours only), the PreStocks mark for pre-IPO, and no trade while Nasdaq or the issuer has the stock halted. `GET /api/v1/policy`
+3. **Whether you can get out.** Exit capacity: the largest sale within 1%, 2% and 5% of the current price, from a ladder of real Jupiter quotes, next to the biggest wallet's position.
+4. **What you paid.** A protected swap whose Jupiter minimum output is set from fair value ± your limit, not from the quote. Jupiter's own program reverts the whole transaction below it, on mainnet, today. The fair price, limit and floor are written into the transaction as a memo, and `/api/v1/certificate?sig=` re-reads the chain and verifies the fill against it.
 
-Built for STOCKLANA (Solana Foundation, Sept 2026): Main track, PreStocks bounty, Pyth bounty. Only PreStocks pre-IPO tokens are integrated, per the PreStocks bounty rules.
+Underneath: the Rehearsal Guard program (on-chain Pyth checks, LULD-style circuit breakers synced to Nasdaq halts, fair orders with opening and closing crosses), a public execution report with bots removed and a ZK proof verified on Solana, an MCP server for agents, and the Rehearsal Gate transfer hook for Meteora launches priced in stocks.
 
-Live app: https://rehearsal-stocklana.vercel.app
+Built for STOCKLANA (Solana Foundation, Sept 2026): Main track, PreStocks bounty, Pyth bounty, Meteora DBC bounty. Only PreStocks pre-IPO tokens are integrated, per the PreStocks bounty rules.
 
-Judge walkthrough (check, protect, prove): [DEMO.md](DEMO.md)
+- Live app: https://rehearsal-stocklana.vercel.app (Trade, Markets, Pre-IPO, Orders, Report)
+- For agents: https://rehearsal-stocklana.vercel.app/agents · MCP `https://rehearsal-stocklana.vercel.app/api/mcp` · [OpenAPI](https://rehearsal-stocklana.vercel.app/api/v1/openapi.json) · [skill](skills/rehearsal/SKILL.md)
+- Judge walkthrough: [DEMO.md](DEMO.md) · Submission: [docs/SUBMISSION.md](docs/SUBMISSION.md)
+
+## Protected swaps on mainnet
+
+`buildProtectedSwap` (`src/lib/agent.ts`, `POST /api/v1/swap`, MCP `build_protected_swap`) quotes the route, computes the fair-value floor for the wallet's limit (`max_gap_bps`), refuses to build anything if the market is already past it, and otherwise sets Jupiter's `slippageBps` so the on-chain minimum output equals the floor. Token-2022 transfer fees are counted: Jupiter checks what actually lands in the wallet, so a PreStocks buy's floor sits below the pool's quote by the 1% fee.
+
+Tests: 5/5 on a Surfpool mainnet fork (`scripts/fork-protect-test.ts`, output in `docs/fork-protect-test-output.txt`):
+- A protected NVDAx buy and sell fill inside their floors, and each receipt verifies against the chain.
+- A floor 1% above what the route can deliver reverts inside Jupiter's program (`SlippageToleranceExceeded`, 6001).
+- A PreStocks (ANDURIL) buy fills after the 1% transfer fee and verifies.
+- A 1% limit on OPENAI, which trades about 32% over its mark, is refused before anything is signed.
+
+The guard program (`open_guard → swap → close_guard`, below) reads Pyth at execution time instead of at build time; it is on devnet until the mainnet deploy.
+
+## Agent layer
+
+The same functions as MCP tools over Streamable HTTP (stateless, no key) at `/api/mcp`: `passport`, `check_trade`, `build_protected_swap`, `verify_receipt`, `market_status` (sessions, halts, breakers, perp prices, cross rules and on-chain official prints), `price_policy`, `prestocks_research`, `execution_report`, `agent_scorecard` (a wallet's sampled fills graded against fair value, with markouts) and `list_stocks`. Every decision is machine-readable: `proceed`, `reduce_size`, `wait` or `avoid`. The mandate is `max_gap_bps`: an agent can't fill past it. Verified with the official MCP inspector (`tools/list`, `tools/call`). Install the skill with `npx skills add Clintobi/rehearsal`.
+
+## Rehearsal Gate: Meteora launches that stop when the stock stops
+
+`onchain/programs/rehearsal_gate` (program `4MtrgDQpbgjpzcAcL5Ftm8E1L37deBnZ5f2Pi6WmpqPE`) is a Token-2022 transfer hook for Meteora DBC launches quoted in a tokenized stock. `init_gate` binds the launch mint to the quote stock's Rehearsal circuit breaker, in the same transaction that creates the pool so the binding can't be front-run. On every transfer during the bonding curve the hook refuses while the stock is halted on its primary exchange (the halt relayer mirrors Nasdaq's halt feed on-chain) or its breaker has paused trading. DBC removes the hook when the curve completes, so the graduated pool trades freely. It mirrors the rule that listed markets and the SEC's tokenized-venue exemption follow; it is not a compliance claim.
+
+Tests: 8/8 on a Surfpool mainnet fork against Meteora's real DBC program and the real SPYx token badge (`scripts/fork-gate-test.ts`, output in `docs/fork-gate-test-output.txt`): a launch quoted in SPYx fills; while SPY is halted, buys and sells revert in the gate (6000 `ExchangeHalted`); after the halt lifts they fill again; completing the curve removes the hook. Live on devnet: a DBC pool gated by the NVDA breaker the relayer keeps in sync (`docs/devnet-gate-output.txt`).
 
 ## Open execution report: a Rule 605 for tokenized stocks
 
@@ -62,13 +88,13 @@ Closing cross: 12/12 on the fork (`scripts/fork-close-test.ts`, output in `docs/
 
 ## Verifiable report
 
-Every report update publishes the exact graded-fill dataset (`fills.json`, one row per fill with its transaction signature) and writes the dataset's SHA-256 to Solana devnet in a memo transaction. `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills, using the same integer math as the SP1 program.
+Every report update publishes the exact graded-fill dataset (`fills.json`, one row per fill with its transaction signature) and writes the dataset's SHA-256 to Solana devnet in a memo transaction. `node zk/verify-offchain.mjs fills.json` recomputes every committed number from the raw fills, using the same integer math as the ZK program.
 
 `zk/` holds an SP1 program that recomputes the report from raw fills. It commits sha256(dataset), counts, medians, p90s and within-25-bps shares.
 
-**What prove means for this submission.** The live grades on `/report`, plus the SP1 `--execute` check, which already passed. From `zk/script`, `cargo run --release -- --execute` prints the public values in [DEMO.md](DEMO.md). That is the check. It is not a Groth16 proof, and it is not a Succinct Prover Network proof.
+**ZK-verified on Solana.** The Groth16 proof over the 310-fill snapshot (`zk/proof/`, generated on a GitHub Actions runner by `.github/workflows/zk-proof.yml`) is verified on-chain by the program's `attest_report` instruction ([tx](https://explorer.solana.com/tx/xWLNrsazKgyC2xADjP3nUACbvqzTYTBrfdDvPtAYtZTtvFH8UWGZkyEHBw4kjqEqfyriJcgRBrteJLfqAkNsJQk?cluster=devnet), attestation `CjtFcKbRrHyBtmdSf1FagcJMzq1EYnnu5rFNdgyGrodH`). It rebuilds SP1 v6's five public inputs (program vkey hash, masked sha256 of the public values, exit code, recursion vk root, nonce) and runs the pairing check with Solana's alt_bn128 syscalls, in 110,458 compute units, then stores a `ReportAttestation` with the proven numbers. The same proof submitted with a different dataset hash is rejected with `ProofInvalid`. See `docs/zk-onchain-output.txt`. `zk/solana-convert` converts SP1's gnark proof and key into the syscall format and verifies off-chain first.
 
-**Later, not this submission.** Local Groth16 (Docker, after submit) and the Succinct Prover Network (when the requester account has PROVE credits) are the optional next step. The program has an `attest_report` instruction for that later proof. See [zk/README.md](zk/README.md).
+**Bots excluded.** Wallets that buy and sell the same token at least 5 times each and end within 10% of flat are round-tripping, not investing (the wash-trading signature from the DN Institute's study of Solana xStock pools). Their fills are dropped from every statistic and from the published dataset: 207 fills from 5 wallet/token pairs at the time of writing. The snapshot in `zk/data/fills.json` is now the bot-free dataset (903 graded fills, sha256 `d16b791f…`, committed on devnet); `--execute` passes locally and its Groth16 proof runs on GitHub Actions.
 
 ## Blink: the check where traders already are
 
