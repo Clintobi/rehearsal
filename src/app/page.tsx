@@ -161,6 +161,8 @@ export default function Home() {
         </section>
       </div>
 
+      <FairOrders />
+
       <ListedVsPre />
 
       <WalletCheck />
@@ -218,6 +220,58 @@ export default function Home() {
         Quotes from Jupiter · reference prices read from Pyth price accounts on Solana and the PreStocks API · not investment advice.
       </footer>
     </main>
+  );
+}
+
+// Where the US session is right now, in New York time.
+function nySession(d = new Date()) {
+  const f = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const p = Object.fromEntries(f.formatToParts(d).map((x) => [x.type, x.value]));
+  const hm = Number(p.hour) * 100 + Number(p.minute);
+  const wk = ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(p.weekday);
+  if (wk && hm >= 930 && hm < 1600) return { open: true, label: "US market open" };
+  if (wk && hm >= 400 && hm < 930) return { open: true, label: "Pre-market" };
+  if (wk && hm >= 1600 && hm < 2000) return { open: true, label: "After hours" };
+  if ((["Sun", "Mon", "Tue", "Wed", "Thu"].includes(p.weekday) && hm >= 2000) || (wk && hm < 400)) return { open: true, label: "Overnight session" };
+  return { open: false, label: "Closed for the weekend. The next opening cross runs when Pyth resumes Sunday 20:00 ET" };
+}
+
+function FairOrders() {
+  const [session, setSession] = useState<{ open: boolean; label: string } | null>(null);
+  useEffect(() => { const tick = () => setSession(nySession()); const first = setTimeout(tick, 0); const t = setInterval(tick, 60_000); return () => { clearTimeout(first); clearInterval(t); }; }, []);
+  const steps = [
+    ["Post a fair order", "\"Buy $500 of NVDAx, never more than 0.5% over the real price.\" The USDC sits in an on-chain escrow. The limit is the live Pyth price, not a number you typed."],
+    ["Market makers compete", "Anyone can fill it, but the program checks every fill against Pyth inside the transaction. A fill 2% over fair is rejected, and a fill below fair goes through with the difference kept by you."],
+    ["Or wait for the open", "Orders placed while the market is closed don't trade into a stale weekend pool. When the Pyth price resumes after 30+ minutes of silence, one cross price is set, and every buyer and seller waiting is matched at exactly that price."],
+  ];
+  return (
+    <section className="mt-14">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h2 className="text-2xl font-semibold tracking-tight">Fair orders and the Monday-open cross</h2>
+        {session && <span className={`rounded-full px-3 py-1 text-xs font-medium ${session.open ? "bg-good-bg text-good" : "bg-warn-bg text-warn"}`}>{session.label}</span>}
+      </div>
+      <p className="mt-1 max-w-3xl text-sm text-mute">
+        An order book where the limit is fair value, and the weekend doesn&apos;t get to set your price.
+      </p>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {steps.map(([t, d], i) => (
+          <div key={t} className="rounded-2xl border border-line bg-card p-5">
+            <div className="num text-xs text-mute">0{i + 1}</div>
+            <div className="mt-1 font-semibold">{t}</div>
+            <p className="mt-2 text-sm text-mute">{d}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 rounded-2xl border border-line bg-card p-4 text-sm text-mute">
+        Tested end to end on a mainnet fork with the real NVDA Pyth account and NVDAx mint, 17/17:
+        a market maker fill at 0.2% over fair accepted, one at 2% over rejected, a better quote filled 0.09% under fair;
+        Friday orders held through a simulated weekend, then crossed at the Monday reopen print, with a buyer
+        and seller matched at <span className="num text-ink">$231.2865</span>, equal to the cross price to the cent.{" "}
+        <a className="text-ink underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-orders-test-output.txt" target="_blank" rel="noreferrer">Test output</a> ·{" "}
+        <a className="text-ink underline" href={`https://explorer.solana.com/address/${GUARD_ID}?cluster=devnet`} target="_blank" rel="noreferrer">program on devnet</a>.
+        Placing orders from this page opens with the mainnet deploy.
+      </div>
+    </section>
   );
 }
 
