@@ -111,6 +111,28 @@ export default function Agents() {
         </div>
       </section>
 
+      <section aria-labelledby="launch" className="grid gap-6 lg:grid-cols-2">
+        <div className="max-w-[62ch] space-y-3">
+          <h2 id="launch" className="text-[19px] font-semibold">For launchpads: launches that stop when the stock stops</h2>
+          <p className="text-[15px] text-ink-2">
+            A Meteora bonding curve can be priced in a tokenized stock like SPYx. When that stock is halted, nobody knows what the curve&apos;s price is worth. The Rehearsal Gate is a Token-2022 transfer hook that reads the stock&apos;s on-chain circuit breaker, which follows Nasdaq&apos;s halt feed, and refuses every buy, sell and transfer of the launch token until trading resumes. It mirrors the rule listed markets follow. Meteora removes the hook when the curve graduates, so the pool trades normally after that.
+          </p>
+          <p className="text-[13px] text-muted">
+            Tested against Meteora&apos;s real DBC program on a mainnet fork: a launch quoted in SPYx fills, reverts in the gate while SPY is halted, resumes after, and loses the hook at graduation (8/8). <a className="text-brand-ink hover:underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-gate-test-output.txt" target="_blank" rel="noreferrer">Test output</a> · <a className="text-brand-ink hover:underline" href="https://explorer.solana.com/address/C5Guo498oPwDLvuDvZDA35M8ChrfLz9GxpbaJbm9oadn?cluster=devnet" target="_blank" rel="noreferrer">Live devnet pool gated by NVDA</a>
+          </p>
+        </div>
+        <div className="min-w-0 space-y-2">
+          <Code label="launch config">{`// 1. DBC config with the gate as its transfer hook
+dbc.partner.createConfigWithTransferHook({
+  ...curve, quoteMint: SPYx, tokenBadge,
+  transferHookProgram: "${"4MtrgDQpbgjpzcAcL5Ftm8E1L37deBnZ5f2Pi6WmpqPE"}",
+})
+// 2. Pool and gate binding in one transaction
+const tx = await dbc.creator.createPoolWithTransferHook({...})
+tx.add(initGateIx(creator, baseMint, SPY_FEED_ID))`}</Code>
+        </div>
+      </section>
+
       <section aria-labelledby="tools" className="space-y-4">
         <h2 id="tools" className="text-[19px] font-semibold">Tools</h2>
         <div className="overflow-hidden rounded-[10px] border border-line bg-panel">

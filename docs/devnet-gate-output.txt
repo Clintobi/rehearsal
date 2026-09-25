@@ -1,0 +1,6 @@
+config 5iQoBzFYKd8WgwHYoLdBuKnMTot7hMt6dV1cNmpfvVK9 https://explorer.solana.com/tx/2oTRwkLCSXmWVxv3eAG1bYQA5afdQCDso4qXpgUYzpXb6dhkmgs6dXT1Q1qxaWpJwTJMwfvUiat5LJXapKsBQZca?cluster=devnet
+pool C5Guo498oPwDLvuDvZDA35M8ChrfLz9GxpbaJbm9oadn https://explorer.solana.com/tx/4kH3x4R5v8WdsrJHQXEEuTXSoS5ZD9fd21Hi1qCACjkfGZQzefAb9Di6xfGPDFKSkTaaumZGgHybjbi3h4k2EQAF?cluster=devnet
+mint 9VHejkKmV5xYyrEgGzafHAcjhNEcfgDqUqkyaZBPNhEP gate metas 9LaLeb1ZLPdoJF9soWJDySP2UcxYjiZjvDCCCAWG4ipn bound to breaker 9b6TKq6KqPoNvrmmzSNniytpfLHGfDnXESNyYD2pT4a9
+buy 0.01 SOL https://explorer.solana.com/tx/3TPjqpSBWrpTtayfTFyFhQXYCZ4ckeoQgCRtan4PYh95q5UY5dgdUsaAw1A9qNCB4pSyyc97s4vZhZvEDLRSnWWB?cluster=devnet gate ran: true
+
+While Nasdaq halts NVDA, the halt relayer sets the breaker and every transfer of this token reverts in the gate.
