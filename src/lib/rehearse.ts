@@ -103,7 +103,7 @@ const fmtB = (v: number) => (v >= 1e12 ? `${(v / 1e12).toFixed(2)}T` : `${(v / 1
 export async function rehearse(asset: Asset, usd: number, side: "buy" | "sell", conn = rpc()): Promise<Rehearsal | { error: string }> {
   const refP = reference(asset, conn).catch(() => null);
   let mults: Awaited<ReturnType<typeof mintInfos>>;
-  try { mults = await mintInfos(conn, [asset.mint]); } catch { return { error: "Couldn't read this token's on-chain data just now. Try again in a few seconds." }; }
+  try { mults = await mintInfos(conn, [asset.mint]); } catch (e) { return { error: `Couldn't read this token's on-chain data just now. Try again in a few seconds.${process.env.NODE_ENV === "development" ? ` (${String(e).slice(0, 160)})` : ""}` }; }
   const ref = await refP;
   // Token-2022 scaled UI amount: one raw unit is `mult` shares as the wallet shows them.
   const mult = mults.get(asset.mint)?.multiplier ?? 1;
