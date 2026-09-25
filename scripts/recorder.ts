@@ -9,7 +9,9 @@
 //   report   every 10m  aggregate → data/report.json (+ optional gist upload)
 //
 // Run:  SOLANA_RPC=... npx tsx scripts/recorder.ts
-import { Connection, PublicKey, type ParsedTransactionWithMeta } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction, type ParsedTransactionWithMeta } from "@solana/web3.js";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -267,7 +269,38 @@ function summarize(rows: { gap_bps: number | null; quote_usd: number; markout_30
 }
 const BUCKETS: [string, number, number][] = [["< $100", 0, 100], ["$100–1k", 100, 1000], ["$1k–10k", 1000, 10_000], ["$10k+", 10_000, Infinity]];
 
-function report() {
+// Tamper-evident commitment: the exact graded-fill dataset behind the report is published,
+// and its sha256 is written to Solana (devnet) in a memo. Anyone can download the dataset,
+// check the hash on-chain, and recompute every number (node zk/verify-offchain.mjs).
+const COMMIT_RPC = process.env.COMMIT_RPC; // e.g. a devnet RPC
+const COMMIT_KEY = process.env.COMMIT_KEY ?? "onchain/keys/deployer.json";
+const MEMO = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+
+function exportFills() {
+  const rows = db.prepare("SELECT sig, symbol, kind, block_time, side, quote_usd, fill_price, ref_price, ref_source FROM fills WHERE gap_bps IS NOT NULL AND quote_usd >= ? ORDER BY block_time, sig").all(MIN_GRADE_USD) as { sig: string; symbol: string; kind: string; block_time: number; side: string; quote_usd: number; fill_price: number; ref_price: number; ref_source: string }[];
+  const out = rows.map((r) => ({ sig: r.sig, symbol: r.symbol, kind: r.kind, t: r.block_time, side: r.side, usd_e6: Math.round(r.quote_usd * 1e6), fill_e6: Math.round(r.fill_price * 1e6), ref_e6: Math.round(r.ref_price * 1e6), ref: r.ref_source }));
+  const bytes = Buffer.from(JSON.stringify(out));
+  writeFileSync("data/fills.json", bytes);
+  // Same integer math as zk/program and zk/verify-offchain.mjs, so the committed numbers
+  // are exactly what anyone recomputes from the published dataset.
+  const gap = (f: (typeof out)[number]) => { const a = BigInt(f.fill_e6), r = BigInt(f.ref_e6); return Number(f.side === "buy" ? (a - r) * 10000n / r : (r - a) * 10000n / r); };
+  const median = (kind: string) => { const g = out.filter((f) => f.kind === kind).map(gap).sort((x, y) => x - y); return g.length ? g[Math.floor((g.length - 1) / 2)] : null; };
+  return { count: out.length, sha256: createHash("sha256").update(bytes).digest("hex"), xstockMedian: median("xstock"), prestockMedian: median("prestock") };
+}
+
+async function commitOnChain(memo: string) {
+  if (!COMMIT_RPC || !existsSync(COMMIT_KEY)) return null;
+  const c = new Connection(COMMIT_RPC, "confirmed");
+  const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(COMMIT_KEY, "utf8"))));
+  const { blockhash } = await c.getLatestBlockhash();
+  const tx = new VersionedTransaction(new TransactionMessage({ payerKey: payer.publicKey, recentBlockhash: blockhash, instructions: [new TransactionInstruction({ programId: MEMO, keys: [{ pubkey: payer.publicKey, isSigner: true, isWritable: false }], data: Buffer.from(memo) })] }).compileToV0Message());
+  tx.sign([payer]);
+  const sig = await c.sendRawTransaction(tx.serialize());
+  await c.confirmTransaction(sig, "confirmed");
+  return sig;
+}
+
+async function report() {
   const all = db.prepare("SELECT * FROM fills").all() as Record<string, never>[] as unknown as {
     sig: string; symbol: string; kind: string; side: string; venue: string; router: string; session: string; quote_usd: number;
     fill_price: number; ref_price: number | null; ref_source: string | null; gap_bps: number | null; markout_300: number | null; block_time: number;
@@ -298,13 +331,23 @@ function report() {
     by_size: BUCKETS.map(([name, lo, hi]) => ({ key: name, ...summarize(all.filter((r) => r.quote_usd >= lo && r.quote_usd < hi)) })),
     worst_fills: worst,
   };
-  writeFileSync("data/report.json", JSON.stringify(out));
-  if (GIST_ID) { try { execFileSync("gh", ["gist", "edit", GIST_ID, "-f", "report.json", "data/report.json"]); } catch (e) { console.error("gist", String(e).slice(0, 120)); } }
-  console.log(`report: ${all.length} fills, ${out.overall.xstocks.graded} xStock + ${out.overall.prestocks.graded} PreStocks graded`);
+  const ds = exportFills();
+  const memo = `rehearsal-report v1 fills=${ds.count} sha256=${ds.sha256} xstock_median_bps=${ds.xstockMedian} prestock_median_bps=${ds.prestockMedian} at=${out.generated_at}`;
+  const sig = await commitOnChain(memo).catch((e) => { console.error("commit", String(e).slice(0, 120)); return null; });
+  const withCommit = { ...out, dataset: { fills: ds.count, sha256: ds.sha256, memo, commitment_tx: sig, cluster: "devnet" } };
+  writeFileSync("data/report.json", JSON.stringify(withCommit));
+  if (GIST_ID) {
+    for (const f of ["report.json", "fills.json"]) {
+      try { execFileSync("gh", ["gist", "edit", GIST_ID, "-a", `data/${f}`]); } catch { try { execFileSync("gh", ["gist", "edit", GIST_ID, "-f", f, `data/${f}`]); } catch (e) { console.error("gist", f, String(e).slice(0, 120)); } }
+    }
+  }
+  console.log(`report: ${all.length} fills, ${out.overall.xstocks.graded} xStock + ${out.overall.prestocks.graded} PreStocks graded, dataset ${ds.sha256.slice(0, 12)}… committed ${sig ?? "(no commit)"}`);
 }
 
-async function reportLoop() { for (;;) { await sleep(600_000); try { report(); } catch (e) { console.error("report", e); } } }
+async function reportLoop() { for (;;) { await sleep(600_000); try { await report(); } catch (e) { console.error("report", e); } } }
 
-if (process.argv.includes("--report")) { report(); process.exit(0); }
+if (process.argv.includes("--report")) { report().then(() => process.exit(0)); }
+if (!process.argv.includes("--report")) {
 console.log(`recorder: ${tracked.length} xStocks + PreStocks, ${priceAccounts.length} Pyth accounts, RPC ${RPC.replace(/api-key=.*/, "api-key=…")}`);
 pricesLoop(); marksLoop(); issuerRefLoop(); fillsLoop(); markoutsLoop(); reportLoop();
+}

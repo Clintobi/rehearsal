@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+const FILLS_URL = process.env.NEXT_PUBLIC_FILLS_URL ?? "https://gist.githubusercontent.com/Clintobi/7b15feb84f4634fa5ef05eec7e248f9c/raw/fills.json";
 const REPORT_URL = process.env.NEXT_PUBLIC_REPORT_URL ?? "https://gist.githubusercontent.com/Clintobi/7b15feb84f4634fa5ef05eec7e248f9c/raw/report.json";
 
 type Summary = { fills: number; graded: number; enough?: boolean; volume_usd: number; median_gap_bps: number | null; p90_gap_bps: number | null; within_25bps: number | null; within_100bps: number | null; median_markout_5m_bps: number | null };
@@ -14,6 +15,7 @@ type Report = {
   overall: { xstocks: Summary; prestocks: Summary };
   by_reference: Row[]; by_venue: Row[]; by_router: Row[]; by_token: Row[]; by_session: Row[]; by_size: Row[];
   worst_fills: Worst[];
+  dataset?: { fills: number; sha256: string; memo: string; commitment_tx: string | null; cluster: string };
 };
 
 const bps = (n: number | null | undefined) => (n == null ? "–" : `${n > 0 ? "+" : ""}${n.toFixed(1)}`);
@@ -205,6 +207,24 @@ export default function ReportPage() {
                   </tbody>
                 </table>
               </div>
+            </section>
+          )}
+
+          {r.dataset && (
+            <section className="mt-10 rounded-2xl border border-line bg-card p-5 text-sm">
+              <h2 className="text-xl font-semibold tracking-tight">Verify this report</h2>
+              <p className="mt-1 max-w-3xl text-mute">
+                You don&apos;t have to trust these numbers. The exact dataset behind them is published, and its fingerprint is written to Solana every time the report updates.
+              </p>
+              <ol className="mt-4 list-decimal space-y-2 pl-5 text-mute">
+                <li>Download the dataset: <a className="text-ink underline" href={FILLS_URL} target="_blank" rel="noreferrer">fills.json</a> ({r.dataset.fills} graded fills, each with its Solana transaction signature).</li>
+                <li>Its SHA-256 must be <code className="num break-all rounded bg-paper px-1 text-ink">{r.dataset.sha256}</code>, the same value committed on-chain{r.dataset.commitment_tx && <> in <a className="text-ink underline" href={`https://explorer.solana.com/tx/${r.dataset.commitment_tx}?cluster=${r.dataset.cluster}`} target="_blank" rel="noreferrer">this memo transaction</a> ({r.dataset.cluster})</>}.</li>
+                <li>Recompute everything: <code className="num rounded bg-paper px-1 text-ink">node zk/verify-offchain.mjs fills.json</code> from the <a className="text-ink underline" href="https://github.com/Clintobi/rehearsal/tree/main/zk" target="_blank" rel="noreferrer">repo</a>. It prints the same medians and the exact bytes the ZK program commits.</li>
+                <li>Spot-check any fill against the chain with its signature.</li>
+              </ol>
+              <p className="mt-4 text-xs text-mute">
+                Zero-knowledge proof: an SP1 program (<a className="underline" href="https://github.com/Clintobi/rehearsal/tree/main/zk" target="_blank" rel="noreferrer">zk/</a>) recomputes the report from raw fills without trusting any precomputed number. Its Groth16 proof over a frozen 310-fill snapshot is being generated and will be verified on Solana.
+              </p>
             </section>
           )}
 

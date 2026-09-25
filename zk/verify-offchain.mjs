@@ -2,7 +2,7 @@
 // committed report without running a prover:  node zk/verify-offchain.mjs
 import { readFileSync } from "fs";
 import { createHash } from "crypto";
-const raw = readFileSync(new URL("./data/fills.json", import.meta.url));
+const raw = readFileSync(process.argv[2] ?? new URL("./data/fills.json", import.meta.url));
 const fills = JSON.parse(raw).filter((f) => f.ref_e6 > 0 && f.usd_e6 >= 10_000_000);
 const gap = (f) => { const a = BigInt(f.fill_e6), r = BigInt(f.ref_e6); return Number(f.side === "buy" ? (a - r) * 10000n / r : (r - a) * 10000n / r); };
 const out = [createHash("sha256").update(raw).digest()];
