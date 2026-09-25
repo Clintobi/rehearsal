@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/actions/rehe
         { type: "transaction", label: buyLabel("100"), href: href("100") },
         { type: "transaction", label: bad ? "Buy anyway" : "Buy", href: `${href("{amount}")}`,
           parameters: [{ type: "number", name: "amount", label: "USDC amount", required: true, min: 1, max: 50_000 }] },
-        { type: "external-link", label: "Full rehearsal", href: `${base}/?t=${asset.symbol}` },
+        { type: "external-link", label: "Open in Rehearsal", href: `${base}/app?t=${asset.symbol}` },
       ],
     },
   }, { headers: ACTION_HEADERS });
