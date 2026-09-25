@@ -16,13 +16,25 @@ function session(d = new Date()) {
   return { open: false, label: "Market closed", note: "Orders placed now wait, then fill together at the first real price on Sunday 8pm ET." };
 }
 
+// Minutes until 4:00 PM New York today, or null outside a weekday before the bell.
+function toClose(d = new Date()) {
+  const f = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const p = Object.fromEntries(f.formatToParts(d).map((x) => [x.type, x.value]));
+  if (!["Mon", "Tue", "Wed", "Thu", "Fri"].includes(p.weekday)) return null;
+  const left = 16 * 60 - (Number(p.hour) * 60 + Number(p.minute));
+  return left > 0 ? left : null;
+}
+const hm = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
+type When = "now" | "open" | "close";
+
 export default function Orders() {
   const { data: assets } = useAssets();
   const [s, setS] = useState<ReturnType<typeof session> | null>(null);
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [limit, setLimit] = useState("0.5");
-  const [waitForOpen, setWaitForOpen] = useState(false);
-  useEffect(() => { const tick = () => setS(session()); const a = setTimeout(tick, 0); const b = setInterval(tick, 60_000); return () => { clearTimeout(a); clearInterval(b); }; }, []);
+  const [when, setWhen] = useState<When>("now");
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => { const tick = () => { setS(session()); setLeft(toClose()); }; const a = setTimeout(tick, 0); const b = setInterval(tick, 60_000); return () => { clearTimeout(a); clearInterval(b); }; }, []);
   const nvda = assets?.find((a) => a.symbol === "NVDAx");
 
   return (
@@ -54,10 +66,16 @@ export default function Orders() {
                 ))}
               </div>
             </div>
-            <label className="flex items-start gap-3">
-              <input type="checkbox" checked={waitForOpen} onChange={(e) => setWaitForOpen(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--brand)]" />
-              <span className="text-[14px]"><span className="font-semibold">Wait for the market to open</span><span className="block text-muted">Skip weekend prices and fill at the first real price after the open.</span></span>
-            </label>
+            <div>
+              <span className="mb-2 block text-[13px] font-medium text-muted">When it fills</span>
+              <Segmented label="When it fills" value={when} onChange={setWhen}
+                options={[{ value: "now", label: "When matched" }, { value: "open", label: "At the open" }, { value: "close", label: "At the close" }]} />
+              <p className="mt-2 text-[13px] text-muted">
+                {when === "now" && "Any market maker can fill you, as long as it's within your limit."}
+                {when === "open" && "Skips weekend prices. Fills at the first real price after the market reopens."}
+                {when === "close" && "Fills at the official 4:00 PM New York closing price, matched with other at-close orders."}
+              </p>
+            </div>
             <Button size="lg" className="w-full" disabled>Place order</Button>
             <p className="text-center text-[13px] text-muted">
               Orders go live with the mainnet launch. The order program is running on{" "}
@@ -74,6 +92,7 @@ export default function Orders() {
                 ["You set a limit, not a price", "Your USDC waits in an on-chain escrow. The limit follows the live price of the real stock, so it's always current."],
                 ["Market makers compete", "Anyone can fill your order, but every fill is checked against the real price in the same transaction. A fill past your limit fails. A fill below the real price is yours to keep."],
                 ["Weekends wait for Monday", "If the market's closed, your order doesn't touch weekend prices. When trading resumes, everyone waiting is matched at one price: the first real one."],
+                ["Or take the closing price", "At-close orders are matched in the five minutes after 4:00 PM New York, at the last real price before the bell: the same closing price index funds trade at."],
               ].map(([t, d], i) => (
                 <li key={t} className="grid grid-cols-[32px_1fr] gap-3">
                   <span className="num grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-[14px] font-semibold text-brand-ink">{i + 1}</span>
@@ -90,12 +109,14 @@ export default function Orders() {
                 <Pill tone={s.open ? "good" : "warn"}>{s.label}</Pill>
               </div>
               <p className="mt-2 text-[14px] text-ink-2">{s.note}</p>
+              {left != null && <p className="mt-2 text-[14px] text-ink-2">Today&apos;s closing cross starts in <span className="num font-semibold text-ink">{hm(left)}</span>.</p>}
             </div>
           )}
 
           <p className="text-[13px] text-muted">
-            Tested against real mainnet data: a fill at 0.2% over fair went through, one at 2% over was refused, and a weekend buyer and seller were matched at exactly the reopen price.{" "}
-            <a className="text-brand-ink hover:underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-orders-test-output.txt" target="_blank" rel="noreferrer">Test results</a>
+            Tested against real mainnet data: a fill at 0.2% over fair went through, one at 2% over was refused, a weekend buyer and seller were matched at exactly the reopen price, and an at-close pair filled at exactly the 4:00 PM price while an after-hours print was ignored.{" "}
+            <a className="text-brand-ink hover:underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-orders-test-output.txt" target="_blank" rel="noreferrer">Order tests</a>{" · "}
+            <a className="text-brand-ink hover:underline" href="https://github.com/Clintobi/rehearsal/blob/main/docs/fork-close-test-output.txt" target="_blank" rel="noreferrer">Closing cross tests</a>
           </p>
         </section>
       </div>

@@ -1,0 +1,27 @@
+
+PASS  1. 15:50: buyer places an at-close order
+      ok
+PASS  2. 15:50: seller places an at-close order
+      ok
+PASS  3. a market maker can't fill an at-close order early
+      Order waits for a cross
+PASS  4. crossing before 16:00 is refused
+      No cross is open right now
+PASS  5. 15:59:30: crank records the last pre-close price
+      ok
+PASS  6. closing price set from the 15:59:55 print
+      close price $225.6225
+PASS  7. an after-hours print (+2%) does not change the closing price
+      still $225.6225
+PASS  8. an order placed after 16:00 can't join today's cross
+      Orders don't match
+PASS  9. 16:00:40: buyer and seller cross
+      ok
+PASS  10. filled at exactly the closing price
+      buyer got 1.0017 NVDAx, seller got $226.01, implied $225.6225 vs close $225.6225
+PASS  11. after the 5-minute window, the cross is closed
+      No cross is open right now
+PASS  12. buyer cancels the unfilled rest
+      ok
+
+12/12 passed

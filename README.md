@@ -37,7 +37,7 @@ The same program now has a per-feed `Breaker` modelled on the US Limit Up-Limit 
 
 Tests:
 - 13/13 on a clean Surfpool mainnet fork with the real NVDA Pyth account and real Jupiter routes (`scripts/fork-breaker-test.ts`, output in `docs/fork-breaker-test-output.txt`). Covered: an 8% shock → limit → pause → reopen, halt → blocked, a stranger can't lift a halt, stale → blocked.
-- 10/10 live on devnet (`docs/devnet-smoke-output.txt`), cranking devnet's real Pyth SOL/USD account.
+- 11/11 live on devnet (`docs/devnet-smoke-output.txt`), cranking devnet's real Pyth SOL/USD account.
 - 4 state-machine unit tests.
 
 Breakers for the 11 Pyth-referenced stocks are live on devnet.
@@ -46,6 +46,7 @@ Breakers for the 11 Pyth-referenced stocks are live on devnet.
 
 - **Fair orders** (`place_order` / `fill_order` / `cancel_order`): an order's limit is Pyth fair value plus the owner's `max_gap_bps`, not a number the owner typed. The input sits in a program-owned escrow. Any market maker can fill part or all of it. The program measures what the owner actually received (after Token-2022 transfer fees and the scaled-UI multiplier) and rejects any fill worse than the limit. Price improvement goes to the owner, and each fill emits its gap vs Pyth.
 - **Opening cross** (`crank_cross` / `cross_orders`): orders placed with `at_open` can't be filled directly while the market is closed. `crank_cross` is permissionless and records the Pyth publish time. When the feed resumes after at least 30 minutes of silence (a weekend, a holiday), it snapshots that reopen print as the cross price and opens a 5-minute window. `cross_orders` matches any waiting buyer and seller at exactly that price.
+- **Closing cross** (`crank_close` / `cross_at_close`): orders placed with `at_close` fill at the official 4:00 PM New York close, the price index funds trade at. The program computes the session close on-chain from the unix clock, including US daylight saving (`nyclock.rs`; weekends have no session, holidays are not modelled). `crank_close` is permissionless and keeps the latest Pyth print published at or before the bell, so an after-hours print can't move it. `cross_at_close` runs from 16:00 to 16:05, needs a closing print no more than 120 s old at the bell, and only matches orders created before the close.
 - **Discovery bounds for the guard** (`Policy.drift_bps_per_hour`): the tolerance widens with the age of the Pyth price, capped at 50%. A weekend trade isn't judged against Friday's close as if it were live, and it isn't waved through either. The same idea as trade.xyz's off-hours bounds, applied to spot swaps.
 
 Tests: 17/17 on a Surfpool mainnet fork (`scripts/fork-orders-test.ts`, output in `docs/fork-orders-test-output.txt`):
@@ -54,6 +55,8 @@ Tests: 17/17 on a Surfpool mainnet fork (`scripts/fork-orders-test.ts`, output i
 - A crank during the close doesn't open a cross, and the first print after 3 hours opens one.
 - A buyer and seller cross at $231.2865, equal to the cross price to the cent. The window closes after 5 minutes, and cancel returns the rest.
 - A stale oracle with a fixed 1% tolerance blocks a trade that discovery bounds correctly allow.
+
+Closing cross: 12/12 on the fork (`scripts/fork-close-test.ts`, output in `docs/fork-close-test-output.txt`). The 15:59:55 print sets the close. An after-hours print 2% higher doesn't change it. An order placed at 16:00:10 can't join. A buyer and seller cross at an implied $225.5432, the closing price exactly. On devnet, `crank_close` put today's session close at 20:00 UTC, which is 16:00 EDT.
 
 ## Verifiable report
 
@@ -152,6 +155,7 @@ npx tsx scripts/fork-test.ts
 | `init_breaker` / `crank_breaker` / `set_halt` / `check_breaker` | LULD-style circuit breaker plus primary-exchange halt-sync |
 | `place_order` / `fill_order` / `cancel_order` | Fair orders: limit = fair value; market makers compete; price improvement goes to the owner |
 | `crank_cross` / `cross_orders` | Opening cross: weekend orders clear together at the reopen print |
+| `crank_close` / `cross_at_close` | Closing cross: at-close orders clear at the 4:00 PM New York price |
 
 ## Code map
 

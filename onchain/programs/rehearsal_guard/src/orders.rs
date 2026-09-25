@@ -47,6 +47,8 @@ pub struct FairOrder {
     pub created_at: i64,
     pub expires_at: i64,
     pub bump: u8,
+    /// Waits for the closing cross: fills only at the official 16:00 New York price.
+    pub at_close: bool,
 }
 
 #[account]
@@ -117,7 +119,9 @@ pub struct PlaceOrder<'info> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn place(ctx: Context<PlaceOrder>, nonce: u64, feed_id: [u8; 32], side: Side, amount_in: u64, max_gap_bps: u16, at_open: bool, ttl_secs: u32) -> Result<()> {
+#[allow(clippy::too_many_arguments)]
+pub fn place(ctx: Context<PlaceOrder>, nonce: u64, feed_id: [u8; 32], side: Side, amount_in: u64, max_gap_bps: u16, at_open: bool, ttl_secs: u32, at_close: bool) -> Result<()> {
+    require!(!(at_open && at_close), GuardError::WrongOrder);
     require!(max_gap_bps <= crate::MAX_TOLERANCE_BPS, GuardError::BadTolerance);
     require!(amount_in > 0, GuardError::NothingSpent);
     require!(tokens::is_stable(&ctx.accounts.stable_mint.key()), GuardError::NotAStablecoin);
@@ -148,6 +152,7 @@ pub fn place(ctx: Context<PlaceOrder>, nonce: u64, feed_id: [u8; 32], side: Side
     o.deposited_in = ctx.accounts.escrow.amount;
     o.max_gap_bps = max_gap_bps;
     o.at_open = at_open;
+    o.at_close = at_close;
     o.created_at = now;
     o.expires_at = now + ttl_secs.max(60) as i64;
     o.bump = ctx.bumps.order;
@@ -184,7 +189,7 @@ pub struct FillOrder<'info> {
 pub fn fill(ctx: Context<FillOrder>, amount_in: u64, amount_out: u64) -> Result<()> {
     let clock = Clock::get()?;
     let o = &ctx.accounts.order;
-    require!(!o.at_open, GuardError::CrossOnly);
+    require!(!o.at_open && !o.at_close, GuardError::CrossOnly);
     require!(clock.unix_timestamp < o.expires_at, GuardError::OrderExpired);
     require!(amount_in > 0 && amount_in <= o.remaining_in, GuardError::NothingSpent);
     let (in_key, out_key) = match o.side { Side::Buy => (o.stable_mint, o.stock_mint), Side::Sell => (o.stock_mint, o.stable_mint) };
@@ -329,52 +334,201 @@ pub fn cross_orders(ctx: Context<CrossOrders>) -> Result<()> {
     require!(b.created_at < c.opened_at && s.created_at < c.opened_at, GuardError::WrongOrder);
     require!(now < b.expires_at && now < s.expires_at, GuardError::OrderExpired);
 
-    let stock_dec = ctx.accounts.stock_mint.decimals;
-    let stable_dec = ctx.accounts.stable_mint.decimals;
-    let mult = tokens::ui_multiplier_e9(&ctx.accounts.stock_mint.to_account_info(), now)?;
-
-    let (stock_raw, stable_raw, usd_e6) = math::cross_quantities(b.remaining_in, stable_dec, s.remaining_in, stock_dec, mult as u64, c.price_e6)?;
-    require!(stock_raw > 0 && stable_raw > 0, GuardError::NothingToCross);
-
-    let (sell_owner, sell_nonce, sell_bump) = (s.owner, s.nonce.to_le_bytes(), s.bump);
-    let (buy_owner, buy_nonce, buy_bump) = (b.owner, b.nonce.to_le_bytes(), b.bump);
-    let sell_seeds: &[&[u8]] = &[b"order", sell_owner.as_ref(), &sell_nonce, &[sell_bump]];
-    let buy_seeds: &[&[u8]] = &[b"order", buy_owner.as_ref(), &buy_nonce, &[buy_bump]];
-
-    let before = ctx.accounts.buyer_stock.amount;
-    transfer_checked(
-        CpiContext::new_with_signer(ctx.accounts.stock_token_program.to_account_info(), TransferChecked {
-            from: ctx.accounts.sell_escrow.to_account_info(),
-            mint: ctx.accounts.stock_mint.to_account_info(),
-            to: ctx.accounts.buyer_stock.to_account_info(),
-            authority: ctx.accounts.sell_order.to_account_info(),
-        }, &[sell_seeds]),
-        stock_raw, stock_dec,
+    let price = c.price_e6;
+    let feed_id = c.feed_id;
+    let (stock_raw, stable_raw, usd_e6) = settle_pair(
+        &mut ctx.accounts.buy_order, &ctx.accounts.buy_escrow, &mut ctx.accounts.sell_order, &ctx.accounts.sell_escrow,
+        &mut ctx.accounts.buyer_stock, &ctx.accounts.seller_stable, &ctx.accounts.stock_mint, &ctx.accounts.stable_mint,
+        &ctx.accounts.stock_token_program, &ctx.accounts.stable_token_program, price, now,
     )?;
-    transfer_checked(
-        CpiContext::new_with_signer(ctx.accounts.stable_token_program.to_account_info(), TransferChecked {
-            from: ctx.accounts.buy_escrow.to_account_info(),
-            mint: ctx.accounts.stable_mint.to_account_info(),
-            to: ctx.accounts.seller_stable.to_account_info(),
-            authority: ctx.accounts.buy_order.to_account_info(),
-        }, &[buy_seeds]),
-        stable_raw, stable_dec,
-    )?;
-    ctx.accounts.buyer_stock.reload()?;
-    let delivered = ctx.accounts.buyer_stock.amount.saturating_sub(before);
-
-    let b = &mut ctx.accounts.buy_order;
-    b.remaining_in -= stable_raw;
-    b.received_out = b.received_out.saturating_add(delivered);
-    let s = &mut ctx.accounts.sell_order;
-    s.remaining_in -= stock_raw;
-    s.received_out = s.received_out.saturating_add(stable_raw);
     let c = &mut ctx.accounts.cross;
     c.pairs = c.pairs.saturating_add(1);
     c.crossed_usd_e6 = c.crossed_usd_e6.saturating_add(usd_e6);
     emit!(OrdersCrossed {
-        feed_id: c.feed_id, buy_order: ctx.accounts.buy_order.key(), sell_order: ctx.accounts.sell_order.key(),
-        price_e6: c.price_e6, stock_raw, stable_raw,
+        feed_id, buy_order: ctx.accounts.buy_order.key(), sell_order: ctx.accounts.sell_order.key(),
+        price_e6: price, stock_raw, stable_raw,
+    });
+    Ok(())
+}
+
+/// Moves stock from the sell escrow to the buyer and stablecoin from the buy escrow to the
+/// seller, at one price, for as much as both orders can do. Shared by both crosses.
+#[allow(clippy::too_many_arguments)]
+fn settle_pair<'info>(
+    buy: &mut Box<Account<'info, FairOrder>>,
+    buy_escrow: &Box<InterfaceAccount<'info, TokenAccount>>,
+    sell: &mut Box<Account<'info, FairOrder>>,
+    sell_escrow: &Box<InterfaceAccount<'info, TokenAccount>>,
+    buyer_stock: &mut Box<InterfaceAccount<'info, TokenAccount>>,
+    seller_stable: &Box<InterfaceAccount<'info, TokenAccount>>,
+    stock_mint: &Box<InterfaceAccount<'info, Mint>>,
+    stable_mint: &Box<InterfaceAccount<'info, Mint>>,
+    stock_token_program: &Interface<'info, TokenInterface>,
+    stable_token_program: &Interface<'info, TokenInterface>,
+    price_e6: u64,
+    now: i64,
+) -> Result<(u64, u64, u128)> {
+    let stock_dec = stock_mint.decimals;
+    let stable_dec = stable_mint.decimals;
+    let mult = tokens::ui_multiplier_e9(&stock_mint.to_account_info(), now)?;
+    let (stock_raw, stable_raw, usd_e6) = math::cross_quantities(buy.remaining_in, stable_dec, sell.remaining_in, stock_dec, mult, price_e6)?;
+    require!(stock_raw > 0 && stable_raw > 0, GuardError::NothingToCross);
+
+    let (sell_owner, sell_nonce, sell_bump) = (sell.owner, sell.nonce.to_le_bytes(), sell.bump);
+    let (buy_owner, buy_nonce, buy_bump) = (buy.owner, buy.nonce.to_le_bytes(), buy.bump);
+    let sell_seeds: &[&[u8]] = &[b"order", sell_owner.as_ref(), &sell_nonce, &[sell_bump]];
+    let buy_seeds: &[&[u8]] = &[b"order", buy_owner.as_ref(), &buy_nonce, &[buy_bump]];
+
+    let before = buyer_stock.amount;
+    transfer_checked(
+        CpiContext::new_with_signer(stock_token_program.to_account_info(), TransferChecked {
+            from: sell_escrow.to_account_info(),
+            mint: stock_mint.to_account_info(),
+            to: buyer_stock.to_account_info(),
+            authority: sell.to_account_info(),
+        }, &[sell_seeds]),
+        stock_raw, stock_dec,
+    )?;
+    transfer_checked(
+        CpiContext::new_with_signer(stable_token_program.to_account_info(), TransferChecked {
+            from: buy_escrow.to_account_info(),
+            mint: stable_mint.to_account_info(),
+            to: seller_stable.to_account_info(),
+            authority: buy.to_account_info(),
+        }, &[buy_seeds]),
+        stable_raw, stable_dec,
+    )?;
+    buyer_stock.reload()?;
+    let delivered = buyer_stock.amount.saturating_sub(before);
+    buy.remaining_in -= stable_raw;
+    buy.received_out = buy.received_out.saturating_add(delivered);
+    sell.remaining_in -= stock_raw;
+    sell.received_out = sell.received_out.saturating_add(stable_raw);
+    Ok((stock_raw, stable_raw, usd_e6))
+}
+
+// ---------------------------------------------------------------- closing cross
+
+/// Orders marked `at_close` fill together at the official 16:00 New York price: the last Pyth
+/// print published at or before the close. Prints after 16:00 (after-hours) never set it.
+pub const CLOSE_MAX_STALENESS_SECS: i64 = 120;
+
+#[account]
+#[derive(InitSpace)]
+pub struct ClosingCross {
+    pub feed_id: [u8; 32],
+    /// 16:00 New York of the session this snapshot belongs to (unix seconds).
+    pub session_close: i64,
+    /// Latest price published at or before `session_close`.
+    pub price_e6: u64,
+    pub price_publish: i64,
+    pub pairs: u32,
+    pub crossed_usd_e6: u128,
+    pub sessions: u32,
+    pub bump: u8,
+}
+
+#[event]
+pub struct ClosePriceSet {
+    pub feed_id: [u8; 32],
+    pub session_close: i64,
+    pub price_e6: u64,
+    pub price_publish: i64,
+}
+
+#[derive(Accounts)]
+#[instruction(feed_id: [u8; 32])]
+pub struct CrankClose<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(init_if_needed, payer = payer, space = 8 + ClosingCross::INIT_SPACE, seeds = [b"close", feed_id.as_ref()], bump)]
+    pub close: Account<'info, ClosingCross>,
+    /// CHECK: validated by `oracle::read_pyth`.
+    pub price_update: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+/// Permissionless. Keepers call it through the last minutes before 16:00; it keeps the
+/// latest price published at or before the close, and ignores anything published after.
+pub fn crank_close(ctx: Context<CrankClose>, feed_id: [u8; 32]) -> Result<()> {
+    let now = Clock::get()?.unix_timestamp;
+    let close_ts = crate::nyclock::session_close(now).ok_or(GuardError::CrossClosed)?;
+    require!(now <= close_ts + CROSS_WINDOW_SECS, GuardError::CrossClosed);
+    let p = oracle::read_pyth(&ctx.accounts.price_update, &feed_id, 3600, FILL_MAX_CONF_BPS, now)?;
+    let c = &mut ctx.accounts.close;
+    if c.feed_id == [0; 32] {
+        c.feed_id = feed_id;
+        c.bump = ctx.bumps.close;
+    }
+    if c.session_close != close_ts {
+        // A new trading day: start a fresh snapshot.
+        c.session_close = close_ts;
+        c.price_e6 = 0;
+        c.price_publish = 0;
+        c.pairs = 0;
+        c.crossed_usd_e6 = 0;
+        c.sessions = c.sessions.saturating_add(1);
+    }
+    if p.publish_time <= close_ts && p.publish_time > c.price_publish {
+        c.price_e6 = oracle::to_e6(&p)?;
+        c.price_publish = p.publish_time;
+        emit!(ClosePriceSet { feed_id, session_close: close_ts, price_e6: c.price_e6, price_publish: c.price_publish });
+    }
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct CrossAtClose<'info> {
+    #[account(mut, seeds = [b"close", close.feed_id.as_ref()], bump = close.bump)]
+    pub close: Box<Account<'info, ClosingCross>>,
+    #[account(mut, seeds = [b"order", buy_order.owner.as_ref(), &buy_order.nonce.to_le_bytes()], bump = buy_order.bump)]
+    pub buy_order: Box<Account<'info, FairOrder>>,
+    #[account(mut, address = buy_order.escrow)]
+    pub buy_escrow: Box<InterfaceAccount<'info, TokenAccount>>,
+    #[account(mut, seeds = [b"order", sell_order.owner.as_ref(), &sell_order.nonce.to_le_bytes()], bump = sell_order.bump)]
+    pub sell_order: Box<Account<'info, FairOrder>>,
+    #[account(mut, address = sell_order.escrow)]
+    pub sell_escrow: Box<InterfaceAccount<'info, TokenAccount>>,
+    #[account(mut, token::mint = stock_mint, token::authority = buy_order.owner, token::token_program = stock_token_program)]
+    pub buyer_stock: Box<InterfaceAccount<'info, TokenAccount>>,
+    #[account(mut, token::mint = stable_mint, token::authority = sell_order.owner, token::token_program = stable_token_program)]
+    pub seller_stable: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub stock_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub stable_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub stock_token_program: Interface<'info, TokenInterface>,
+    pub stable_token_program: Interface<'info, TokenInterface>,
+}
+
+/// Permissionless. After 16:00, matches one at-close buy with one at-close sell at the close price.
+pub fn cross_at_close(ctx: Context<CrossAtClose>) -> Result<()> {
+    let now = Clock::get()?.unix_timestamp;
+    let c = &ctx.accounts.close;
+    require!(c.session_close > 0 && now >= c.session_close && now <= c.session_close + CROSS_WINDOW_SECS, GuardError::CrossClosed);
+    // The closing price must come from the final minutes of the session.
+    require!(c.price_e6 > 0 && c.session_close - c.price_publish <= CLOSE_MAX_STALENESS_SECS, GuardError::StalePrice);
+    let (b, s) = (&ctx.accounts.buy_order, &ctx.accounts.sell_order);
+    require!(b.at_close && s.at_close, GuardError::CrossOnly);
+    require!(b.side == Side::Buy && s.side == Side::Sell, GuardError::WrongOrder);
+    require!(b.feed_id == c.feed_id && s.feed_id == c.feed_id, GuardError::WrongOrder);
+    require!(b.stock_mint == s.stock_mint && b.stable_mint == s.stable_mint, GuardError::WrongOrder);
+    require_keys_eq!(ctx.accounts.stock_mint.key(), b.stock_mint, GuardError::WrongOrder);
+    require_keys_eq!(ctx.accounts.stable_mint.key(), b.stable_mint, GuardError::WrongOrder);
+    require!(b.created_at < c.session_close && s.created_at < c.session_close, GuardError::WrongOrder);
+    require!(now < b.expires_at && now < s.expires_at, GuardError::OrderExpired);
+
+    let price = c.price_e6;
+    let feed_id = c.feed_id;
+    let (stock_raw, stable_raw, usd_e6) = settle_pair(
+        &mut ctx.accounts.buy_order, &ctx.accounts.buy_escrow, &mut ctx.accounts.sell_order, &ctx.accounts.sell_escrow,
+        &mut ctx.accounts.buyer_stock, &ctx.accounts.seller_stable, &ctx.accounts.stock_mint, &ctx.accounts.stable_mint,
+        &ctx.accounts.stock_token_program, &ctx.accounts.stable_token_program, price, now,
+    )?;
+    let c = &mut ctx.accounts.close;
+    c.pairs = c.pairs.saturating_add(1);
+    c.crossed_usd_e6 = c.crossed_usd_e6.saturating_add(usd_e6);
+    emit!(OrdersCrossed {
+        feed_id, buy_order: ctx.accounts.buy_order.key(), sell_order: ctx.accounts.sell_order.key(),
+        price_e6: price, stock_raw, stable_raw,
     });
     Ok(())
 }

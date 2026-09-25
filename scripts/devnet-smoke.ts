@@ -2,7 +2,7 @@
 // full swap path is tested on the mainnet fork (fork-test.ts); here we hit the guard's own rules.
 import { ComputeBudgetProgram, Connection, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { readFileSync } from "fs";
-import { crankCrossIx, crossPda, decodeCross, ata, breakerPda, checkBreakerIx, closeGuardIx, crankBreakerIx, decodeBreaker, GUARD_ERRORS, GUARD_PROGRAM_ID, initBreakerIx, openGuardIx, setHaltIx, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
+import { closePda, crankCloseIx, crankCrossIx, crossPda, decodeClose, decodeCross, ata, breakerPda, checkBreakerIx, closeGuardIx, crankBreakerIx, decodeBreaker, GUARD_ERRORS, GUARD_PROGRAM_ID, initBreakerIx, openGuardIx, setHaltIx, TOKEN_PROGRAM, type GuardLegs, type Policy } from "../src/lib/guard";
 
 const conn = new Connection(process.env.DEVNET_RPC ?? "https://api.devnet.solana.com", "confirmed");
 const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync("onchain/keys/deployer.json", "utf8"))));
@@ -61,4 +61,9 @@ async function run(name: string, ixs: TransactionInstruction[], expect: number) 
   await run("crank_cross records the latest publish time (armed, no reopen)", [crankCrossIx(payer.publicKey, SOL_FEED, SOL_PRICE)], 0);
   const c = decodeCross((await conn.getAccountInfo(crossPda(SOL_FEED)))!.data as Buffer);
   console.log(`      cross: last publish ${new Date(c.lastPublishSeen * 1000).toISOString()}, crosses=${c.crosses}`);
+
+  // Closing cross: record the last price published at or before today's 16:00 New York close.
+  await run("crank_close records today's pre-close price", [crankCloseIx(payer.publicKey, SOL_FEED, SOL_PRICE)], 0);
+  const k = decodeClose((await conn.getAccountInfo(closePda(SOL_FEED)))!.data as Buffer);
+  console.log(`      close: session ${new Date(k.sessionClose * 1000).toISOString()}, price $${(Number(k.priceE6) / 1e6).toFixed(4)} published ${new Date(Number(k.pricePublish) * 1000).toISOString()}`);
 })();

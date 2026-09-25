@@ -164,6 +164,7 @@ export type OrderSpec = {
   owner: PublicKey; nonce: bigint; feedIdHex: string; side: "buy" | "sell";
   stockMint: PublicKey; stableMint: PublicKey; stockTokenProgram: PublicKey; stableTokenProgram: PublicKey;
   amountIn: bigint; maxGapBps: number; atOpen: boolean; ttlSecs: number;
+  atClose?: boolean;
 };
 
 export function placeOrderIx(o: OrderSpec) {
@@ -171,8 +172,8 @@ export function placeOrderIx(o: OrderSpec) {
   const inMint = buy ? o.stableMint : o.stockMint;
   const inProg = buy ? o.stableTokenProgram : o.stockTokenProgram;
   const order = orderPda(o.owner, o.nonce);
-  const tail = Buffer.alloc(1 + 8 + 2 + 1 + 4);
-  tail[0] = buy ? 0 : 1; tail.writeBigUInt64LE(o.amountIn, 1); tail.writeUInt16LE(o.maxGapBps, 9); tail[11] = o.atOpen ? 1 : 0; tail.writeUInt32LE(o.ttlSecs, 12);
+  const tail = Buffer.alloc(1 + 8 + 2 + 1 + 4 + 1);
+  tail[0] = buy ? 0 : 1; tail.writeBigUInt64LE(o.amountIn, 1); tail.writeUInt16LE(o.maxGapBps, 9); tail[11] = o.atOpen ? 1 : 0; tail.writeUInt32LE(o.ttlSecs, 12); tail[16] = o.atClose ? 1 : 0;
   return new TransactionInstruction({
     programId: GUARD_PROGRAM_ID,
     data: Buffer.concat([disc("place_order"), u64(o.nonce), feedBytes(o.feedIdHex), tail]),
@@ -245,6 +246,47 @@ export function crossOrdersIx(buy: OrderSpec, sell: OrderSpec) {
       { pubkey: buy.stableTokenProgram, isSigner: false, isWritable: false },
     ],
   });
+}
+
+export const closePda = (feedIdHex: string) => PublicKey.findProgramAddressSync([Buffer.from("close"), feedBytes(feedIdHex)], GUARD_PROGRAM_ID)[0];
+
+export const crankCloseIx = (payer: PublicKey, feedIdHex: string, priceUpdate: PublicKey) => new TransactionInstruction({
+  programId: GUARD_PROGRAM_ID, data: Buffer.concat([disc("crank_close"), feedBytes(feedIdHex)]),
+  keys: [
+    { pubkey: payer, isSigner: true, isWritable: true },
+    { pubkey: closePda(feedIdHex), isSigner: false, isWritable: true },
+    { pubkey: priceUpdate, isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ],
+});
+
+export function crossAtCloseIx(buy: OrderSpec, sell: OrderSpec) {
+  const bo = orderPda(buy.owner, buy.nonce), so = orderPda(sell.owner, sell.nonce);
+  return new TransactionInstruction({
+    programId: GUARD_PROGRAM_ID, data: disc("cross_at_close"),
+    keys: [
+      { pubkey: closePda(buy.feedIdHex), isSigner: false, isWritable: true },
+      { pubkey: bo, isSigner: false, isWritable: true },
+      { pubkey: ata(bo, buy.stableMint, buy.stableTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: so, isSigner: false, isWritable: true },
+      { pubkey: ata(so, sell.stockMint, sell.stockTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: ata(buy.owner, buy.stockMint, buy.stockTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: ata(sell.owner, sell.stableMint, sell.stableTokenProgram), isSigner: false, isWritable: true },
+      { pubkey: buy.stockMint, isSigner: false, isWritable: false },
+      { pubkey: buy.stableMint, isSigner: false, isWritable: false },
+      { pubkey: buy.stockTokenProgram, isSigner: false, isWritable: false },
+      { pubkey: buy.stableTokenProgram, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
+export function decodeClose(data: Buffer) {
+  let o = 8 + 32;
+  const sessionClose = Number(data.readBigInt64LE(o)); o += 8;
+  const priceE6 = data.readBigUInt64LE(o); o += 8;
+  const pricePublish = Number(data.readBigInt64LE(o)); o += 8;
+  const pairs = data.readUInt32LE(o);
+  return { sessionClose, priceE6, pricePublish, pairs };
 }
 
 export function cancelOrderIx(o: OrderSpec) {
@@ -344,9 +386,10 @@ export const GUARD_ERRORS: Record<number, string> = {
   6018: "Circuit breaker not cranked recently",
   6019: "Breaker parameters out of range",
   6020: "Breaker is for a different feed",
-  6021: "Order waits for the opening cross",
+  6021: "Order waits for a cross",
   6022: "Order expired",
-  6023: "No opening cross is open",
+  6023: "No cross is open right now",
   6024: "Orders don't match",
   6025: "Nothing to cross",
+  6026: "The zero-knowledge proof did not verify",
 };

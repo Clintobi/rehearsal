@@ -1,13 +1,15 @@
 program TSjcyXhvjYT9wVNcGehoYNCZavry7rmMhkbukhmDxiE on devnet, payer 2TL4offmc2uDbuscFYjRZjHbea1ixTHXiAjbT42qbV8j
-PASS  open_guard with no close_guard reverts: open_guard without a matching close_guard  https://explorer.solana.com/tx/3G3n645Mi7wRyHqjK8m5sFK5Hx1zXePk8fkpiNUsUw9tKhMWN8qxKrWXMTcaL6S8Jv1K9qS27NiXsgZZD8NbRqCH?cluster=devnet
-PASS  open → close with no swap in between reverts: Swap spent nothing  https://explorer.solana.com/tx/m5Yc2PSmaQdyuYwauydw1J3dc57fUstgLXczJTiBBQtt7ZUAz462qGc6QLHodfBtpAnc4k6aoCz3ogrXbumGdyp?cluster=devnet
-PASS  tolerance above 50% is rejected: Tolerance out of range  https://explorer.solana.com/tx/CzMf1k3QnXg1rRMXVNvDTaAAfNf6ZBVHWD59Eos9ftVpg4vupHxrbVvFnYKFBCuBM7Fdc6e8Uhuf8467tb6iM3L?cluster=devnet
-PASS  crank the SOL/USD breaker from the live devnet Pyth account: ok  https://explorer.solana.com/tx/5CyUHZapXkjC9WgRymjgt8Puqfjw6yWtJwiuqZdkonPmdN683h1hC9KvHDhtk4Sk2AdiX6yGFfty6m2RGFiHAbKh?cluster=devnet
-      breaker: state=normal reference=$116.38 band=500bps
-PASS  check_breaker passes while Normal: ok  https://explorer.solana.com/tx/BeBhfJZ8nawKB8iVYukFURjavLeDexizY4EKjoKKfkfzAbi5SqXHeLLVUZ51aUn7ezptco8HqgBY6Cy1qPKY732?cluster=devnet
-PASS  post an exchange halt: ok  https://explorer.solana.com/tx/4tDkuyeevRQnS3sa61sCBMnN1J8by7LVdkGuJkGavHVHtMAu9NdEHUxVrtoWD2PjLc4dVLVU5sL2VhM9fDozGMGr?cluster=devnet
-PASS  check_breaker fails while halted: The primary exchange has halted this stock  https://explorer.solana.com/tx/5a1u5RuipMwvfiQvrYUzuwoR59bJjg3vA6rqzpxBhCBsvNima4h3KhbeVDw3dokZpwFqKrvMqVheH873hGde7eFe?cluster=devnet
-PASS  lift the halt: ok  https://explorer.solana.com/tx/5Wm8KMzoWwEuyBq4EwKC1dsjv6PXrBUmjMRwmCQ24ZUs7Z8AgxoEZoc4TCano5MoQcTXf56B51dKQ4zFiUdAiPvu?cluster=devnet
-PASS  check_breaker passes again: ok  https://explorer.solana.com/tx/5Vdon3s5FfaxjkotkwXhWQbDuM5GpqDNha5TuDWfqkfMs2YvQUE7bJwMJdpBKr1VuuPY8n1qMuML8u53jAYxEGpq?cluster=devnet
-PASS  crank_cross records the latest publish time (armed, no reopen): ok  https://explorer.solana.com/tx/4uxPz1wD7Creh9xwXDJsh74d6JJLayDS8CMe6ER6dspQDcT3v4SGeuq4neKYXVxnEuM5rTBni4Uo8dg7HvsECgGV?cluster=devnet
-      cross: last publish 2026-09-25T05:00:30.000Z, crosses=0
+PASS  open_guard with no close_guard reverts: open_guard without a matching close_guard  https://explorer.solana.com/tx/UKvHdmW5gDi9CzqYQoRoiABZe9hCtzKxi4QmvFL7MgeE73KjCDxRGsFzgGfxfnwxUA1cSWUhXbuQWEMhFyg28E1?cluster=devnet
+PASS  open → close with no swap in between reverts: Swap spent nothing  https://explorer.solana.com/tx/2aaX8mc88oJazBSyJ6Q8CQJnGHBm2PgQA9VKEnHKojTEs2VAAYwptrCAbc5dzk6cbQUTQZGgZ4avSLkwHXiBs7ot?cluster=devnet
+PASS  tolerance above 50% is rejected: Tolerance out of range  https://explorer.solana.com/tx/2oQkLvLJzdf86Z4TGx5sdDpYj9KKNzrqks5YArzuMakonYxg7LWJSMkHcKQgQ7BVfonX95Tvp3WJXkYC6gjhD2EC?cluster=devnet
+PASS  crank the SOL/USD breaker from the live devnet Pyth account: ok  https://explorer.solana.com/tx/239pMv1R6YyKT2pST1MRmSTEhH9nKeiy3AcWPqq9gsiAm9kfAeWD9ynKdq7uHmnNvHbi6gFGxNyGTqfN93pT7Ufn?cluster=devnet
+      breaker: state=normal reference=$117.35 band=500bps
+PASS  check_breaker passes while Normal: ok  https://explorer.solana.com/tx/4yR7TNCENGmwtb8KaacXERo1RLKM6n2G3xejxAG2x8DgeYopE8EvG9hnrPsTvjwjgEy3nAKkq3AZjaCtQ61uTVvA?cluster=devnet
+PASS  post an exchange halt: ok  https://explorer.solana.com/tx/59Rs3a2UpxLpEyMp9KGHeoQza2SPcnekEd6c97EFT3w1uCSS84QV9mJNAwaKx2qF19nDWUrqmgzgmqTWy5ES5YFs?cluster=devnet
+PASS  check_breaker fails while halted: The primary exchange has halted this stock  https://explorer.solana.com/tx/5ELyRhLzXnr69oFYSCffvk7Dra4jtDFTQr2vMdgufNYfgPpLM93nYoEy9bC1kZ7TVhfAkDXb9NzNswQvVXcgeayb?cluster=devnet
+PASS  lift the halt: ok  https://explorer.solana.com/tx/54eRc45y8VVfPEqhT1ywgdJLnaepnyg2ucu8ggv6AfZ8o1mBQaoW32hm4ZUUTMDE3sv5yoSTnSdkYSAHLASHCsDh?cluster=devnet
+PASS  check_breaker passes again: ok  https://explorer.solana.com/tx/Gkxy5ywU4T3qRqVpCdpsFYtnQjBU4M7gCJLaXAnEsQomW7Cn9D3qjpUWyKcbxmCthELQqh6UJqtQKHXomRY4pJj?cluster=devnet
+PASS  crank_cross records the latest publish time (armed, no reopen): ok  https://explorer.solana.com/tx/3SUPXPwDs1x2Ws5hoDvXDjN67stvAr5zrWy2Y2aWFH5gFmFS7vZQSNgLyhTJkRqqRLofahRcRpAEaV65zD9CkH9J?cluster=devnet
+      cross: last publish 2026-09-25T08:26:08.000Z, crosses=0
+PASS  crank_close records today's pre-close price: ok  https://explorer.solana.com/tx/663DPEKFbZcRnMFXgPL7aFF59VAmbcJKVBjhSgjhLKiYAvTf5W1ERmGjzQo5xcW2sKq3QnVKU7hZQw2A7VueJDuL?cluster=devnet
+      close: session 2026-09-25T20:00:00.000Z, price $117.3540 published 2026-09-25T08:26:08.000Z

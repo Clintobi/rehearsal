@@ -49,3 +49,4 @@ zk/program/target/
 zk/script/target/
 
 zk/solana-convert/target/
+.surfpool/

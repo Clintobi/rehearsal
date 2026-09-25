@@ -11,6 +11,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount};
 pub mod breaker;
 pub mod errors;
 pub mod math;
+pub mod nyclock;
 pub mod oracle;
 pub mod orders;
 pub mod state;
@@ -269,8 +270,16 @@ pub mod rehearsal_guard {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn place_order(ctx: Context<PlaceOrder>, nonce: u64, feed_id: [u8; 32], side: Side, amount_in: u64, max_gap_bps: u16, at_open: bool, ttl_secs: u32) -> Result<()> {
-        orders::place(ctx, nonce, feed_id, side, amount_in, max_gap_bps, at_open, ttl_secs)
+    pub fn place_order(ctx: Context<PlaceOrder>, nonce: u64, feed_id: [u8; 32], side: Side, amount_in: u64, max_gap_bps: u16, at_open: bool, ttl_secs: u32, at_close: bool) -> Result<()> {
+        orders::place(ctx, nonce, feed_id, side, amount_in, max_gap_bps, at_open, ttl_secs, at_close)
+    }
+
+    pub fn crank_close(ctx: Context<CrankClose>, feed_id: [u8; 32]) -> Result<()> {
+        orders::crank_close(ctx, feed_id)
+    }
+
+    pub fn cross_at_close(ctx: Context<CrossAtClose>) -> Result<()> {
+        orders::cross_at_close(ctx)
     }
 
     pub fn fill_order(ctx: Context<FillOrder>, amount_in: u64, amount_out: u64) -> Result<()> {
