@@ -1,33 +1,36 @@
-# Demo video (2:45)
+# Demo video (about 3 minutes)
 
-Record the screen at 1440×900 and your voice on top. One take per scene is fine. Say the numbers the screen actually shows on the day. The figures below are from 24 Sep.
+Record at 1440×900 with your own voice. Say the numbers the screen shows on the day. The figures below are from 25 Sep.
 
-## 0:00 Hook (15s)
-Screen: the board, sorted by largest gap.
-> "Tokenized stocks trade 24/7 on Solana. The real stock doesn't, and pre-IPO companies don't trade at all. So what you pay can drift a long way from fair value. Right now OpenAI's PreStocks token fills about 38% over its own mark, and nothing on the way to your signature tells you."
+Before recording:
+- `MAINNET_RPC=<helius> scripts/fork-up.sh` in one terminal, with the font enlarged.
+- Have these tabs open: `/report`, the home page, the Blink on dial.to, and the devnet program on Solana Explorer.
 
-## 0:15 Rehearse a trade (35s)
-Screen: pick OPENAI, $1,000, Rehearse.
-> "Rehearsal quotes my exact order on Jupiter and prices it against a fair reference. For PreStocks that's the issuer mark. For xStocks it's Pyth's price of the real share, read straight from the Pyth account on Solana."
-Point at: gap, implied valuation ($1.75T vs a $1.27T mark), and the transfer-fee line.
-> "It counts the things people miss. PreStocks withhold 1% on every transfer, and SpaceX's token has a 5× split multiplier in Token-2022. Get either wrong and your numbers are off by a lot."
-Then switch to NVDAx: "Same check on NVIDIA: within 0.1% of Pyth. Fair."
+## 0:00 The hook (20s)
+Screen: `/report`, top.
+> "On September 17th the SEC exempted on-chain stock venues from Rule 605, the rule that makes brokers publish how well they fill your orders. So on Solana, nobody has to tell you whether you got a fair price. We built it anyway."
 
-## 0:50 The guard (50s), the core of the demo
-Screen: split. Left, the app with "Guard this trade on-chain" ticked. Right, a terminal.
-> "A warning is still just a warning. So I built the Rehearsal Guard, a Solana program. It wraps any Jupiter swap in the same transaction. It snapshots my balances, lets the swap run, then measures what I actually received and values it at Pyth. If I got a worse deal than my tolerance, the whole transaction reverts."
-Terminal: `npx tsx scripts/fork-app-test.ts` on the Surfpool mainnet fork.
-> "This is a local fork of mainnet with real Jupiter routes and real Pyth accounts, driven through the app's own API. Apple at 1% tolerance: filled inside the guard. OpenAI with a 5% cap over mark: the guard measures it at 39% over and blocks it on-chain, and no funds move. The app predicted 39.2% before the trade and the chain measured 39.35%."
-Show the `docs/fork-test-output.txt` list briefly: spoofed oracle, fake oracle, open without close — all rejected.
+## 0:20 The report card (35s)
+Scroll through the size table, CRCLx, and the worst fills list.
+> "This records real tokenized-stock trades on Solana and grades each one against the real stock price at that second. Big names with a live Pyth price fill within a few basis points. Trades under $100 pay about ten times more than $100 to $1,000 trades. Circle's token fills a third of a percent over its reference."
+Then open "Verify this report".
+> "You don't have to trust us. The dataset is published, its fingerprint goes on-chain every ten minutes, and one command recomputes every number."
 
-## 1:40 Your wallet (35s)
-Screen: paste the $565k holder address, Check wallet.
-> "Holders need this too. Paste any wallet and it compares each position's fair value with what selling right now would really pay. This wallet holds $386,000 of SpaceX PreStocks, and Jupiter has no route for it at that size. There's no exit on-chain today."
+## 0:55 Before you trade (25s)
+Screen: home page, rehearse OPENAI for $1,000.
+> "Before you buy, Rehearsal quotes your real fill. OpenAI's token fills about 39% over its own mark, after the 1% transfer fee most tools miss."
+Tick "Guard this trade on-chain".
 
-## 2:15 SpaceX listed (15s)
-Screen: the SpaceX section.
-> "SpaceX has listed. The pre-IPO token still trades, 19% below the listed share. That discount is the price of waiting on conversion, and now you can see it."
+## 1:20 The guard and the brake (45s)
+Screen: terminal. Run `npx tsx scripts/fork-app-test.ts`.
+> "The guard is a Solana program that wraps any swap. In the same transaction it checks what you actually received against Pyth, and reverts everything if it's worse than your tolerance. Apple goes through. OpenAI at 39% over mark gets blocked on-chain, and no funds move."
+Run `npx tsx scripts/fork-breaker-test.ts`.
+> "Every stock also has a circuit breaker, like the stock market's limit-up limit-down rule. We shock NVIDIA 8%: limit, pause, reopen. And when Nasdaq halts the real stock, a relayer mirrors it on-chain. That halt is the one thing the SEC's exemption requires, and nothing on Solana did it until now."
 
-## 2:30 Close (15s)
-> "Rehearsal: know what a tokenized stock really costs before you sign, and have the chain refuse the trade if it's worse. Live on mainnet, guard program open-source, 9 of 9 fork tests passing."
-Show: the URL, the GitHub link, and the program id.
+## 2:05 Fair orders and the Monday cross (40s)
+Screen: home page, the fair orders section, then run `npx tsx scripts/fork-orders-test.ts`.
+> "Then an order book where the limit is fair value. A market maker tries to fill at 2% over: rejected. At 0.2% over: filled. A better quote under fair: the buyer keeps the difference. Orders placed on a Friday wait out the weekend. When Pyth prints again Monday, everyone crosses at one price: $231.2865, to the cent."
+
+## 2:45 Close (15s)
+Screen: the devnet program on Explorer, then the GitHub repo.
+> "Rehearsal is best execution for tokenized stocks: a report card anyone can verify, a guard and circuit breaker on-chain, and fair orders that don't let the weekend set your price. Live on mainnet for checks, and on devnet for the program. Everything is open source."
