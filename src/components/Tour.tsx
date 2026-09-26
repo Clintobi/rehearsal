@@ -70,9 +70,9 @@ export default function Tour() {
   }, []);
   const open = useCallback(() => { setI(0); setDir(1); if (!ref.current?.open) ref.current?.showModal(); }, []);
 
-  // The game and shared calls explain themselves, so the tour doesn't interrupt them.
+  // The game, shared calls and the first-stock guide explain themselves, so the tour stays out of them.
   const path = usePathname() ?? "";
-  const quiet = path.startsWith("/app/call") || path === "/c";
+  const quiet = path.startsWith("/app/call") || path.startsWith("/app/start") || path === "/c";
   useEffect(() => {
     let seen = false;
     try { seen = localStorage.getItem(KEY) === "done"; } catch { seen = true; }

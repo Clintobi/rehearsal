@@ -63,6 +63,9 @@ function Hero({ wk }: { wk: Weekend | null }) {
           <Link href="/app/call" className={cx(btn, "bg-brand text-on-brand hover:bg-brand-hover")}>Make your Monday Call</Link>
           <Link href="/app/weekend" className={cx(btn, "border border-line bg-panel text-ink hover:border-line-strong")}>See this weekend&apos;s forecast</Link>
         </div>
+        <p className="rise mt-4 text-[14px] text-muted [animation-delay:170ms]">
+          New to this? <Link href="/app/start" className="font-medium text-brand-ink hover:underline">Own your first stock from $10</Link> in four steps.
+        </p>
         <div className="rise mt-8 flex items-start gap-2.5 text-[14px] text-muted [animation-delay:200ms]">
           <span className="relative mt-1.5 flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-good opacity-60 motion-reduce:hidden" /><span className="relative inline-flex h-2 w-2 rounded-full bg-good" /></span>
           {nv?.record.movedWeekends

@@ -445,7 +445,10 @@ function Ticket({ assets, board, mint, onPick, side, setSide, amount, setAmount,
 
       <div className="mt-5">
         {!connected ? (
-          <Button size="lg" className="w-full" onClick={() => setVisible(true)}>Connect wallet</Button>
+          <>
+            <Button size="lg" className="w-full" onClick={() => setVisible(true)}>Connect wallet</Button>
+            <p className="mt-2 text-center text-[12.5px] text-muted">New here? <Link href="/app/start" className="font-medium text-brand-ink hover:underline">Your first stock in 4 steps</Link></p>
+          </>
         ) : !r || stale ? (
           <Button size="lg" variant="secondary" className="w-full" disabled>{r ? "Updating price…" : "Getting price…"}</Button>
         ) : (
