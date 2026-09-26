@@ -51,7 +51,7 @@ export default function Landing() {
 // ---------------------------------------------------------------- hero
 
 function Hero({ wk }: { wk: Weekend | null }) {
-  const nv = wk?.forecasts.find((f) => f.symbol === "NVDAx");
+  const nv = wk?.forecasts?.find((f) => f.symbol === "NVDAx");
   return (
     <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-14 sm:px-6 lg:grid-cols-[1fr_440px] lg:gap-20 lg:pb-28 lg:pt-24">
       <div>
@@ -60,8 +60,8 @@ function Hero({ wk }: { wk: Weekend | null }) {
           Stocks keep trading all weekend as tokens. Rehearsal turns those prices into a forecast of Monday&apos;s open, and shows you how often it&apos;s right.
         </p>
         <div className="rise mt-8 flex flex-wrap gap-3 [animation-delay:140ms]">
-          <Link href="/app/weekend" className={cx(btn, "bg-brand text-on-brand hover:bg-brand-hover")}>See this weekend&apos;s forecast</Link>
-          <Link href="/app" className={cx(btn, "border border-line bg-panel text-ink hover:border-line-strong")}>Start trading</Link>
+          <Link href="/app/call" className={cx(btn, "bg-brand text-on-brand hover:bg-brand-hover")}>Make your Monday Call</Link>
+          <Link href="/app/weekend" className={cx(btn, "border border-line bg-panel text-ink hover:border-line-strong")}>See this weekend&apos;s forecast</Link>
         </div>
         <div className="rise mt-8 flex items-start gap-2.5 text-[14px] text-muted [animation-delay:200ms]">
           <span className="relative mt-1.5 flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-good opacity-60 motion-reduce:hidden" /><span className="relative inline-flex h-2 w-2 rounded-full bg-good" /></span>
@@ -106,6 +106,10 @@ function ForecastCard({ wk }: { wk: Weekend | null }) {
           </li>
         ))}
       </ul>
+      <Link href="/app/call" className="flex items-center justify-between gap-3 rounded-b-2xl border-t border-line px-5 py-3.5 text-[14px] font-medium text-brand-ink transition-colors hover:bg-surface">
+        Think you can beat it? Call the open, free
+        <Arrow />
+      </Link>
     </figure>
   );
 }

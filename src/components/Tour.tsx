@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cx, Pill } from "./ui";
 
 const KEY = "rh-tour-v1";
@@ -70,13 +70,16 @@ export default function Tour() {
   }, []);
   const open = useCallback(() => { setI(0); setDir(1); if (!ref.current?.open) ref.current?.showModal(); }, []);
 
+  // The game and shared calls explain themselves, so the tour doesn't interrupt them.
+  const path = usePathname() ?? "";
+  const quiet = path.startsWith("/app/call") || path === "/c";
   useEffect(() => {
     let seen = false;
     try { seen = localStorage.getItem(KEY) === "done"; } catch { seen = true; }
-    const t = seen ? undefined : setTimeout(open, 700);
+    const t = seen || quiet ? undefined : setTimeout(open, 700);
     window.addEventListener("rh:tour", open);
     return () => { if (t) clearTimeout(t); window.removeEventListener("rh:tour", open); };
-  }, [open]);
+  }, [open, quiet]);
 
   const go = (n: number) => { if (n < 0 || n >= STEPS.length) return; setDir(n > i ? 1 : -1); setI(n); };
   const last = i === STEPS.length - 1;

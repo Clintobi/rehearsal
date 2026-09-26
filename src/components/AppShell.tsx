@@ -8,13 +8,14 @@ import Tour, { openTour } from "./Tour";
 
 const WalletMultiButton = dynamic(() => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton), { ssr: false });
 
-// Five destinations. Pre-IPO and Weekend live inside Markets; Orders inside Portfolio.
+// Six destinations (five on phones, where Report sits in the footer). Pre-IPO and Weekend live inside Markets; Orders inside Portfolio.
 const NAV = [
+  { href: "/app/call", label: "Call", match: ["/app/call"], icon: <path d="M8 20V4M4 8l4-4 4 4M16 4v16M12 16l4 4 4-4" /> },
   { href: "/app", label: "Trade", match: ["/app"], icon: <path d="M4 16l5-5 4 4 7-7M14 8h6v6" /> },
   { href: "/app/markets", label: "Markets", match: ["/app/markets", "/app/private", "/app/weekend"], icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> },
   { href: "/app/earn", label: "Earn", match: ["/app/earn"], icon: <><circle cx="12" cy="12" r="8.5" /><path d="M14.8 9.3c-.5-.9-1.6-1.4-2.8-1.4-1.6 0-2.8.8-2.8 2s1.2 1.7 2.8 2.1c1.6.4 2.8.9 2.8 2.1s-1.2 2-2.8 2c-1.3 0-2.4-.5-2.9-1.4M12 6.4v1.5M12 16.1v1.5" /></> },
   { href: "/app/portfolio", label: "Portfolio", match: ["/app/portfolio", "/app/orders"], icon: <><rect x="3" y="6" width="18" height="14" rx="3" /><path d="M16 13h2M3 10h18" /></> },
-  { href: "/report", label: "Report", match: ["/report"], icon: <><path d="M6 3h9l5 5v13H6z" /><path d="M14 3v6h6M9 14h8M9 18h5" /></> },
+  { href: "/report", label: "Report", match: ["/report"], desktopOnly: true, icon: <><path d="M6 3h9l5 5v13H6z" /><path d="M14 3v6h6M9 14h8M9 18h5" /></> },
 ];
 
 function active(path: string, match: string[]) {
@@ -51,12 +52,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main key={path} className="page-in mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 md:pb-20 md:pt-12">{children}</main>
+      <main key={path} className="page-in mx-auto max-w-6xl px-4 pb-12 pt-8 sm:px-6 md:pb-20 md:pt-12">{children}</main>
       <Tour />
 
-      <footer className="mx-auto hidden max-w-6xl px-4 sm:px-6 md:block">
+      <footer className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 md:pb-0">
         <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-line py-6 text-[12.5px] text-muted">
           <span>Not investment advice.</span>
+          <Link href="/report" className="hover:text-ink md:hidden">Report</Link>
           <Link href="/agents" className="hover:text-ink">API</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>
@@ -65,7 +67,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[var(--z-sticky)] border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
         <div className="grid grid-cols-5">
-          {NAV.map((n) => {
+          {NAV.filter((n) => !("desktopOnly" in n)).map((n) => {
             const on = active(path, n.match);
             return (
               <Link key={n.href} href={n.href} aria-current={on ? "page" : undefined}

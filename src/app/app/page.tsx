@@ -35,6 +35,14 @@ function Trade() {
   const req = useRef(0);
   const ppReq = useRef(0);
 
+  // A preset amount from ?usd= (e.g. "Back your call: own $10"), read once.
+  useEffect(() => {
+    const u = Number(params?.get("usd"));
+    if (!(u >= 1 && u <= 50_000)) return;
+    const t = setTimeout(() => setAmount(String(Math.round(u))), 0);
+    return () => clearTimeout(t);
+  }, [params]);
+
   // Pick the token from ?t=SYMBOL, else NVDAx.
   useEffect(() => {
     if (!assets?.length || mint) return;
