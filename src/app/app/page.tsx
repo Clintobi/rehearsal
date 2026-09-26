@@ -6,7 +6,8 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { VersionedTransaction } from "@solana/web3.js";
 import type { Rehearsal } from "@/lib/rehearse";
-import { useAssets, useBoard, type AssetOpt } from "@/lib/hooks";
+import { useAssets, useBoard, useFetch, type AssetOpt } from "@/lib/hooks";
+import type { Forecast } from "@/lib/weekend";
 import { gapTone, pct, price, shortAddr, usd, type Tone } from "@/lib/format";
 import { Button, cx, InfoTip, Notice, Pill, Segmented, Skeleton, TokenIcon, toneText } from "@/components/ui";
 import type { Passport as PassportData } from "@/lib/agent";
@@ -169,7 +170,6 @@ function notes(r: Rehearsal, pp: PassportData | null): { tone: Tone; text: strin
     out.push(pp.evidence.level === "perp"
       ? { tone: "neutral", text: "Market closed. Priced against the 24/7 price." }
       : { tone: "warn", text: "Market closed. The last price may be hours old." });
-    if (pp.decision.action === "wait" && (pp.fill.gapPct ?? 0) > 0.5) out.push({ tone: "warn", text: `${pp.fill.gapPct!.toFixed(2)}% over the 24/7 price. Waiting for the open may fill better.` });
   } else if (!pp && r.reference?.market && !r.reference.market.open && r.asset.kind === "xstock") {
     out.push({ tone: "neutral", text: "Market closed. Prices can move at the open." });
   }
@@ -214,10 +214,12 @@ function Verdict({ r, asset, loading, error, stale, pp }: { r: Rehearsal | null;
 
       {f && <PriceScale fill={r.fillPrice} fair={f.price} tone={h.tone} fairLabel={f.label} side={r.side} />}
 
+      {r.asset.kind === "xstock" && <NowOrOpen r={r} />}
+
       <dl className="grid grid-cols-3 gap-6 border-t border-line pt-5">
         <Stat label={r.side === "buy" ? "You pay" : "You get"} value={price(r.fillPrice)} sub="per share" />
         <Stat label={f?.label ?? "Real price"} value={f ? price(f.price) : "–"} sub="per share" />
-        <Stat label="You receive" value={r.tokens.toLocaleString("en-US", { maximumFractionDigits: 4 })} sub={r.asset.symbol} />
+        <Stat label="You receive" value={r.tokens.toLocaleString("en-US", { maximumFractionDigits: 4 })} sub={r.asset.kind === "xstock" ? `shares · ${r.asset.symbol}` : r.asset.symbol} />
       </dl>
 
       {ns.length > 0 && (
@@ -230,6 +232,45 @@ function Verdict({ r, asset, loading, error, stale, pp }: { r: Rehearsal | null;
 
       <Details r={r} />
     </section>
+  );
+}
+
+// ---------------------------------------------------------------- now or at the open?
+
+// While the market is closed: is today's token price above or below where the stock should
+// open, and what that means in dollars on this order. The range is the forecast's usual miss.
+function NowOrOpen({ r }: { r: Rehearsal }) {
+  const { data } = useFetch<{ open: boolean; forecasts?: Forecast[] }>("/api/weekend", 60_000, 60_000);
+  const f = data && !data.open ? data.forecasts?.find((x) => x.symbol === r.asset.symbol) : null;
+  if (!f?.implied || f.rangePct == null) return null;
+  const buy = r.side === "buy";
+  // + means now is worse for you than the expected open.
+  const gapPct = (buy ? r.fillPrice / f.implied - 1 : 1 - r.fillPrice / f.implied) * 100;
+  const usdDiff = Math.abs(r.tokens * (r.fillPrice - f.implied));
+  const range = Math.max(f.rangePct, 0.1);
+  const tone: Tone = gapPct > range ? "warn" : "good";
+  const title = gapPct > range
+    ? `Waiting for the open looks about ${usd(usdDiff)} ${buy ? "cheaper" : "better"}`
+    : gapPct < -range
+      ? `Now looks about ${usd(usdDiff)} ${buy ? "cheaper" : "better"} than the open`
+      : "Now is in line with where it should open";
+  const within = `8 in 10 past weekends opened within ±${range.toFixed(1)}% of it.`;
+  const record = f.record.movedWeekends ? `Right direction on ${f.record.rightDirection} of ${f.record.movedWeekends} weekends; ${within}` : within;
+  return (
+    <div className={cx("rounded-xl border px-4 py-3.5", tone === "warn" ? "border-warn/40 bg-warn-soft" : "border-line bg-surface")}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[12.5px] font-medium text-muted">Now or at the open?</p>
+        <Pill tone={tone}>{tone === "warn" ? "Consider waiting" : "Fine to trade now"}</Pill>
+      </div>
+      <p className="mt-1.5 text-[16px] font-semibold leading-snug">{title}</p>
+      <p className="num mt-1 text-[13.5px] text-ink-2">
+        Now {price(r.fillPrice)} · expected open {price(f.implied)} ({pct(f.changePct ?? 0)} from the close)
+      </p>
+      <p className="mt-1.5 text-[12.5px] text-muted">
+        An estimate from the token&apos;s move since the close, not a promise. {record}{" "}
+        <Link href="/app/call" className="font-medium text-brand-ink hover:underline">Call the open</Link>
+      </p>
+    </div>
   );
 }
 
@@ -368,7 +409,7 @@ function Ticket({ assets, board, mint, onPick, side, setSide, amount, setAmount,
         <span className="text-[12.5px] text-muted">USDC</span>
       </div>
       <div className="mt-2 grid grid-cols-4 gap-1.5">
-        {[100, 500, 1000, 5000].map((v) => (
+        {[25, 100, 500, 1000].map((v) => (
           <button key={v} onClick={() => setAmount(String(v))}
             className={cx("num h-8 rounded-md border text-[12.5px] font-medium transition-colors",
               Number(amount) === v ? "border-ink bg-ink text-bg" : "border-line text-ink-2 hover:border-line-strong hover:text-ink")}>
